@@ -2,6 +2,9 @@ import streamlit as st
 import plotly.graph_objects as go
 import sys
 import os
+import math
+import time
+import random
 
 # Set page config to make the app wider with dark mode
 st.set_page_config(
@@ -230,6 +233,11 @@ if 'graph_statistics' not in st.session_state:
 # Create a container for the dropdown
 dropdown_container = st.container()
 
+# Create a placeholder for the DNA animation
+animation_placeholder = st.empty()
+
+# We'll generate the animation directly during loading
+
 # We'll add the dropdown content after we load the graph data
 # This ensures we can access the actual statistics
 
@@ -243,12 +251,27 @@ with st.sidebar:
     
     # Section for node visibility - clean and simple layout
     st.subheader("Show/Hide Nodes")
+    
+    # Create session state variables to track changes
+    if 'last_gene_state' not in st.session_state:
+        st.session_state.last_gene_state = True
+    if 'last_phenotype_state' not in st.session_state:
+        st.session_state.last_phenotype_state = True
+    if 'last_diagnostic_state' not in st.session_state:
+        st.session_state.last_diagnostic_state = True
+    if 'last_gene_pheno_edges_state' not in st.session_state:
+        st.session_state.last_gene_pheno_edges_state = True
+    if 'last_pheno_diag_edges_state' not in st.session_state:
+        st.session_state.last_pheno_diag_edges_state = True
+    
+    # Simple checkboxes without complex callbacks
     show_genes = st.checkbox("Genes (blue)", value=True)
     show_phenotypes = st.checkbox("Phenotypes (orange)", value=True)
     show_diagnostics = st.checkbox("Diagnostic Measures (magenta)", value=True)
     
     # Section for connections
     st.subheader("Show/Hide Connections")
+    
     show_gene_pheno_edges = st.checkbox("Gene-Phenotype Connections", value=True)
     show_pheno_diag_edges = st.checkbox("Phenotype-Diagnostic Connections", value=True)
     
@@ -288,6 +311,64 @@ with st.sidebar:
     st.markdown("---")
     st.caption("GenoPhenoPath by [Niklas Winnewisser](https://github.com/niklaswinner)")
     st.caption("Built with Streamlit & Plotly")
+
+# Import the spinning.py script functionality
+def render_dna_frame(frame_num, width=70, height=30):
+    """Generate a single frame of DNA helix animation"""
+    # Configuration
+    radius = 10
+    helix_length = 25
+    dna_chars = ['G', 'T', 'C', 'A']  # DNA nucleotide characters
+    
+    # Create an empty screen buffer
+    screen = [[' ' for _ in range(width)] for _ in range(height)]
+    
+    # Calculate the center of the screen
+    center_x = width // 2
+    center_y = height // 2
+    
+    # Draw the two helical strands
+    for y_offset in range(-helix_length, helix_length + 1):
+        # Calculate the y position
+        y = center_y + y_offset
+        
+        # Skip if out of bounds
+        if y < 0 or y >= height:
+            continue
+        
+        # Calculate the phase for this position
+        phase = y_offset / 4 + frame_num / 10
+        
+        # Determine which character to use based on position
+        char_index = (y_offset + helix_length) % 4
+        current_char = dna_chars[char_index]
+        
+        # Calculate x positions for the two strands (opposite sides of the helix)
+        x1 = center_x + int(radius * math.sin(phase))
+        x2 = center_x + int(radius * math.sin(phase + math.pi))
+        
+        # Place characters if in bounds
+        if 0 <= x1 < width:
+            screen[y][x1] = current_char
+        if 0 <= x2 < width:
+            # Use complementary base pair on opposite strand
+            complementary_index = (char_index + 2) % 4
+            screen[y][x2] = dna_chars[complementary_index]
+            
+        # Add connecting rungs between the strands (less frequently)
+        if y % 4 == 0:
+            # Calculate the beginning and end of the rung
+            if x1 > x2:
+                x1, x2 = x2, x1
+            
+            # Draw the rung
+            for x in range(x1 + 1, x2):
+                if 0 <= x < width:
+                    # Use hyphen for the connecting rungs
+                    screen[y][x] = '-'
+    
+    # Convert the 2D screen array to a string
+    return '\n'.join(''.join(row) for row in screen)
 
 # Function to load the knowledge graph from prototype.py - removed st.cache_data
 def load_knowledge_graph():
@@ -415,50 +496,49 @@ try:
         """
     ]
     
+    # Start loading in background
+    import threading
+    
+    result = [None]  # Use a list to store the result since nonlocal isn't available
+    loading_complete = [False]  # Flag to indicate when loading is complete
+    
+    def load_data():
+        # Call the non-cached function
+        result[0] = load_knowledge_graph()
+        loading_complete[0] = True
+    
+    # Start the loading in a separate thread
+    loading_thread = threading.Thread(target=load_data)
+    loading_thread.start()
+    
     # Show DNA animation while loading
     with st.spinner(""):
-        # Create a placeholder for the DNA animation
-        dna_placeholder = st.empty()
-        
-        # Start loading in background
-        import threading
-        import time
-        
-        result = [None]  # Use a list to store the result since nonlocal isn't available
-        loading_complete = [False]  # Flag to indicate when loading is complete
-        
-        def load_data():
-            # Call the non-cached function
-            result[0] = load_knowledge_graph()
-            loading_complete[0] = True
-        
-        # Start the loading in a separate thread
-        loading_thread = threading.Thread(target=load_data)
-        loading_thread.start()
-        
-        # Display rotating DNA animation while loading
+        # Generate frames for the DNA animation
+        frames = [render_dna_frame(i) for i in range(10)]
         frame_index = 0
+        
+        # Create a placeholder for the DNA animation
+        dna_placeholder = animation_placeholder
+        
+        # Display the spinning DNA animation while loading
         while not loading_complete[0]:
-            # Display current frame with a centered DNA loading message
             dna_placeholder.markdown(f"""
-            <div style="text-align: center;">
-                <p style="color: #8be9fd; font-size: 1.5rem; margin-bottom: 10px;">Building Knowledge Graph</p>
-                <div style="font-family: monospace; color: #50fa7b;">
-                {dna_frames[frame_index]}
+            <div style="text-align: center; padding: 20px; background-color: rgba(0, 0, 0, 0.8); border-radius: 10px;">
+                <div style="font-family: monospace; white-space: pre; color: #50fa7b; text-shadow: 0 0 5px rgba(80, 250, 123, 0.7);">
+                {frames[frame_index]}
                 </div>
-                <p style="color: #f8f8f2;">Mapping genes, phenotypes, and diagnostic pathways...</p>
             </div>
             """, unsafe_allow_html=True)
             
             # Move to next frame
-            frame_index = (frame_index + 1) % len(dna_frames)
-            time.sleep(0.2)  # Control animation speed
-        
-        # Clear the animation when loading is complete
-        dna_placeholder.empty()
-        
-        # Unpack the result
-        fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time = result[0]
+            frame_index = (frame_index + 1) % len(frames)
+            time.sleep(0.15)  # Control animation speed
+    
+    # Clear the animation when done
+    animation_placeholder.empty()
+    
+    # Unpack the result
+    fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time = result[0]
         
     # Show toast after function completes (outside the cached function)
     st.toast(f"Graph loaded in {elapsed_time:.2f} seconds")
@@ -649,6 +729,42 @@ try:
             
         # No display filtering info
         
+        # Check if any visualization settings changed
+        if (show_genes != st.session_state.last_gene_state or
+            show_phenotypes != st.session_state.last_phenotype_state or
+            show_diagnostics != st.session_state.last_diagnostic_state or
+            show_gene_pheno_edges != st.session_state.last_gene_pheno_edges_state or
+            show_pheno_diag_edges != st.session_state.last_pheno_diag_edges_state):
+            
+            # Show DNA animation when settings change
+            # Generate frames for the DNA animation
+            frames = [render_dna_frame(i) for i in range(10)]
+            frame_index = 0
+            
+            # Display the spinning DNA animation briefly
+            for _ in range(5):  # Show 5 frames of animation
+                animation_placeholder.markdown(f"""
+                <div style="text-align: center; padding: 20px; background-color: rgba(0, 0, 0, 0.8); border-radius: 10px;">
+                    <div style="font-family: monospace; white-space: pre; color: #50fa7b; text-shadow: 0 0 5px rgba(80, 250, 123, 0.7);">
+                    {frames[frame_index]}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Move to next frame
+                frame_index = (frame_index + 1) % len(frames)
+                time.sleep(0.1)  # Control animation speed
+            
+            # Update session state with current settings
+            st.session_state.last_gene_state = show_genes
+            st.session_state.last_phenotype_state = show_phenotypes
+            st.session_state.last_diagnostic_state = show_diagnostics
+            st.session_state.last_gene_pheno_edges_state = show_gene_pheno_edges
+            st.session_state.last_pheno_diag_edges_state = show_pheno_diag_edges
+                
+        # Clear the animation placeholder
+        animation_placeholder.empty()
+        
         # Display the interactive 3D graph with a try-catch for memory issues
         try:
             st.plotly_chart(updated_fig, use_container_width=True)
@@ -698,8 +814,17 @@ try:
             
     except Exception as e:
         st.error(f"Error updating graph visualization: {str(e)}")
-        # Fallback - try to show the original figure
+        # Fallback - try to show the original figure and hide animation
         try:
+            # Hide the DNA animation
+            st.markdown("""
+            <script>
+                if (typeof window.toggleDnaAnimation === 'function') {
+                    window.toggleDnaAnimation(false);
+                }
+            </script>
+            """, unsafe_allow_html=True)
+            
             st.plotly_chart(fig, use_container_width=True)
             
             # Add the explanation text below the plotly figure
