@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="GenoPhenoPath 3D Knowledge Graph",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed"  # Sidebar completely hidden
 )
 
 # Add custom CSS for dark spacey theme
@@ -17,6 +17,28 @@ st.markdown("""
     /* Pure black background */
     .stApp {
         background: #000000;
+    }
+    
+    /* Hide and remove the top header bar completely */
+    header {
+        display: none !important;
+    }
+    
+    /* Target the main elements that create margins/padding */
+    .main .block-container {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* Remove extra padding from the root container */
+    .css-k1vhr4, .css-18e3th9, .css-1d391kg {
+        padding-top: 0 !important;
+    }
+    
+    /* Target the top toolbar area */
+    [data-testid="stToolbar"] {
+        display: none !important;
     }
     
     /* Title styling */
@@ -35,6 +57,74 @@ st.markdown("""
     .css-1d391kg, [data-testid="stSidebar"] {
         background-color: #000000 !important;
         border-right: 1px solid rgba(139, 233, 253, 0.2);
+    }
+    
+    /* Hide the sidebar toggle completely */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+    
+    /* Position our custom dropdown bar with a little space at the top */
+    div[data-testid="stExpander"] {
+        position: fixed !important;
+        top: 10px !important;
+        left: 10% !important;
+        right: 0 !important;
+        z-index: 9999 !important;
+        width: 80% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* Style the dropdown header itself */
+    .streamlit-expanderHeader {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border: none !important;
+        border-radius: 0 !important; /* Remove border radius for a menu bar look */
+        color: #8be9fd !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        padding: 5px 10px !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+    
+    /* Style the dropdown content */
+    .streamlit-expanderContent {
+        background-color: rgba(15, 20, 30, 0.8) !important;
+        border-radius: 0 0 4px 4px !important;
+        border: none !important;
+        padding: 10px !important;
+        margin: 0 !important;
+        width: 100% !important;
+        box-shadow: none !important;
+    }
+    
+    /* Remove additional outlines and borders that might appear */
+    .streamlit-expanderHeader:focus, .streamlit-expanderHeader:hover,
+    .streamlit-expanderContent:focus, .streamlit-expanderContent:hover {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* Style the expander arrow */
+    .streamlit-expanderHeader svg {
+        color: #8be9fd !important;
+        fill: #8be9fd !important;
+    }
+    
+    /* Remove the white outline around the icon */
+    .st-emotion-cache-1w5q6cr, .css-1w5q6cr {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* Add padding to the main content to prevent overlap with fixed header */
+    .main .block-container {
+        padding-top: 50px !important;
     }
     
     /* Button styling */
@@ -62,10 +152,22 @@ st.markdown("""
         color: #f8f8f2 !important;
     }
     
-    /* Make metric values more visible */
+    /* Make metric values more visible and colorful */
     [data-testid="stMetricValue"] {
-        color: #8be9fd !important;
-        font-size: 1.4rem !important;
+        font-size: 1.6rem !important;
+        font-weight: bold !important;
+    }
+    
+    /* Colorize different metric types */
+    /* First row - node counts */
+    [data-testid="column"]:nth-child(1) [data-testid="stMetricValue"] {
+        color: #8be9fd !important; /* Blue for genes */
+    }
+    [data-testid="column"]:nth-child(2) [data-testid="stMetricValue"] {
+        color: #ffb86c !important; /* Orange for phenotypes */
+    }
+    [data-testid="column"]:nth-child(3) [data-testid="stMetricValue"] {
+        color: #ff79c6 !important; /* Magenta for diagnostics */
     }
     
     /* Info box styling */
@@ -81,15 +183,50 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Create title with cosmic effect
-st.markdown("""
-<div style='text-align: center;'>
-    <h1>🧬 GenoPhenoPath 3D Knowledge Graph 🧬</h1>
-    <p style='font-size: 1.2rem; color: #bd93f9 !important; margin-top: -10px;'>
-        Exploring the connections between genes, phenotypes, and diagnostics in 3D space
-    </p>
-</div>
-""", unsafe_allow_html=True)
+# No title
+
+# Declare variables in a container to store graph stats
+if 'graph_statistics' not in st.session_state:
+    st.session_state.graph_statistics = {
+        'gene_count': 0,
+        'phenotype_count': 0,
+        'diagnostic_count': 0,
+        'gene_pheno_edges': 0,
+        'pheno_diag_edges': 0,
+        'total_edges': 0,
+        'visible_genes': 0,
+        'visible_phenotypes': 0,
+        'visible_diagnostics': 0,
+        'visible_gene_pheno_edges': 0,
+        'visible_pheno_diag_edges': 0,
+        'visible_total_edges': 0
+    }
+
+# Add a dropdown bar at the top with DNA symbol (🧬)
+with st.expander("🧬 DNA Genopath - Statistics 🧬", expanded=False):
+    # Create columns for a nice layout of statistics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Genes", st.session_state.graph_statistics.get('visible_genes', 0))
+    with col2:
+        st.metric("Phenotypes", st.session_state.graph_statistics.get('visible_phenotypes', 0))
+    with col3:
+        st.metric("Diagnostic Measures", st.session_state.graph_statistics.get('visible_diagnostics', 0))
+        
+    # Add a small vertical space
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Second row for edges
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Gene-Phenotype Edges", st.session_state.graph_statistics.get('visible_gene_pheno_edges', 0))
+    with col2:
+        st.metric("Phenotype-Diagnostic Edges", st.session_state.graph_statistics.get('visible_pheno_diag_edges', 0))
+    with col3:
+        st.metric("Total Edges", st.session_state.graph_statistics.get('visible_total_edges', 0))
+
+# No custom sidebar toggle
 
 # Description will be moved below the plotly figure
 
@@ -490,24 +627,48 @@ try:
         
         # Calculate number of displayed nodes and edges
         displayed_nodes = 0
+        visible_genes = 0
+        visible_phenotypes = 0
+        visible_diagnostics = 0
+        
         if show_genes:
-            displayed_nodes += len(genes)
+            visible_genes = len(genes)
+            displayed_nodes += visible_genes
         if show_phenotypes:
-            displayed_nodes += len(phenotypes)
+            visible_phenotypes = len(phenotypes)
+            displayed_nodes += visible_phenotypes
         if show_diagnostics:
-            displayed_nodes += len(diagnostics)
+            visible_diagnostics = len(diagnostics)
+            displayed_nodes += visible_diagnostics
             
         displayed_edges = 0
+        visible_gene_pheno_edges = 0
+        visible_pheno_diag_edges = 0
+        
         if show_gene_pheno_edges and show_genes and show_phenotypes:
-            displayed_edges += graph_stats["gene_to_pheno_edges"]
+            visible_gene_pheno_edges = graph_stats["gene_to_pheno_edges"]
+            displayed_edges += visible_gene_pheno_edges
         if show_pheno_diag_edges and show_phenotypes and show_diagnostics:
-            displayed_edges += graph_stats["pheno_to_diag_edges"]
+            visible_pheno_diag_edges = graph_stats["pheno_to_diag_edges"]
+            displayed_edges += visible_pheno_diag_edges
             
-        # Display filtering info
-        st.info(f"Displaying {displayed_nodes}/{graph_stats['total_nodes']} nodes " + 
-                f"({(displayed_nodes/graph_stats['total_nodes']*100):.1f}%) and " +
-                f"{displayed_edges}/{graph_stats['total_edges']} edges " + 
-                f"({(displayed_edges/graph_stats['total_edges']*100):.1f}%)")
+        # Store the total statistics in session_state
+        st.session_state.graph_statistics = {
+            'gene_count': len(genes),
+            'phenotype_count': len(phenotypes),
+            'diagnostic_count': len(diagnostics),
+            'gene_pheno_edges': graph_stats["gene_to_pheno_edges"],
+            'pheno_diag_edges': graph_stats["pheno_to_diag_edges"],
+            'total_edges': graph_stats["total_edges"],
+            'visible_genes': visible_genes,
+            'visible_phenotypes': visible_phenotypes,
+            'visible_diagnostics': visible_diagnostics,
+            'visible_gene_pheno_edges': visible_gene_pheno_edges,
+            'visible_pheno_diag_edges': visible_pheno_diag_edges,
+            'visible_total_edges': displayed_edges
+        }
+            
+        # No display filtering info
         
         # Display the interactive 3D graph with a try-catch for memory issues
         try:
@@ -548,14 +709,7 @@ try:
         except:
             st.error("Unable to display graph visualization. The dataset may be too large.")
     
-    # Add some information about interaction
-    st.info("""
-    **Interaction Tips:**
-    - **Rotate**: Click and drag to rotate the graph
-    - **Zoom**: Scroll to zoom in/out
-    - **Pan**: Right-click and drag to pan
-    - **Hover**: Mouse over nodes to see their labels
-    """)
+    # No interaction tips
     
 except Exception as e:
     st.error(f"Error loading knowledge graph: {str(e)}")

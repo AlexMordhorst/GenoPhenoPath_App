@@ -417,11 +417,11 @@ def create_knowledge_graph():
 
     # Create a dark spacey layout for the 3D graph
     layout = go.Layout(
-        # More concise title
-        title_text = f"Knowledge Graph: {n_nodes} nodes, {n_edges} edges",
+        # No title
+        title_text = "",
         width=1000,
         height=800,
-        showlegend=True,  # Show legend to identify node types
+        showlegend=False,  # Hide legend
         legend=dict(
             font=dict(color="#f8f8f2"),
             bgcolor="rgba(15, 22, 36, 0.5)"
