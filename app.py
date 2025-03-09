@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="GenoPhenoPath 3D Knowledge Graph",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded"  # Show sidebar by default for better discoverability
+    initial_sidebar_state="collapsed"  # Hide sidebar by default
 )
 
 # Add custom CSS for dark spacey theme
@@ -227,29 +227,11 @@ if 'graph_statistics' not in st.session_state:
         'visible_total_edges': 0
     }
 
-# Add a dropdown bar at the top with DNA symbol (🧬)
-with st.expander("🧬 DNA Genopath - Statistics 🧬", expanded=False):
-    # Create columns for a nice layout of statistics
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Genes", st.session_state.graph_statistics.get('visible_genes', 0))
-    with col2:
-        st.metric("Phenotypes", st.session_state.graph_statistics.get('visible_phenotypes', 0))
-    with col3:
-        st.metric("Diagnostic Measures", st.session_state.graph_statistics.get('visible_diagnostics', 0))
-        
-    # Add a small vertical space
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Second row for edges
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Gene-Phenotype Edges", st.session_state.graph_statistics.get('visible_gene_pheno_edges', 0))
-    with col2:
-        st.metric("Phenotype-Diagnostic Edges", st.session_state.graph_statistics.get('visible_pheno_diag_edges', 0))
-    with col3:
-        st.metric("Total Edges", st.session_state.graph_statistics.get('visible_total_edges', 0))
+# Create a container for the dropdown
+dropdown_container = st.container()
+
+# We'll add the dropdown content after we load the graph data
+# This ensures we can access the actual statistics
 
 # No custom sidebar toggle
 
@@ -481,24 +463,7 @@ try:
     # Show toast after function completes (outside the cached function)
     st.toast(f"Graph loaded in {elapsed_time:.2f} seconds")
     
-    # Display graph statistics
-    # First row: node counts
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Genes", len(genes))
-    with col2:
-        st.metric("Phenotypes", len(phenotypes))
-    with col3:
-        st.metric("Diagnostic Measures", len(diagnostics))
-    
-    # Second row: edge counts
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Gene-Phenotype Edges", graph_stats["gene_to_pheno_edges"])
-    with col2:
-        st.metric("Phenotype-Diagnostic Edges", graph_stats["pheno_to_diag_edges"])
-    with col3:
-        st.metric("Total Edges", graph_stats["total_edges"])
+    # No metrics displayed here - only in the dropdown
     
     # If search term is provided, highlight the matching nodes
     if search_term:
@@ -699,6 +664,34 @@ try:
                 </ul>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Now use the dropdown container to display statistics from our calculated values
+            with dropdown_container:
+                with st.expander("🧬 DNA Genopath - Statistics 🧬", expanded=False):
+                    # Create columns for a nice layout of statistics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Genes", visible_genes, 
+                                 delta=f"{visible_genes}/{len(genes)}" if visible_genes < len(genes) else None)
+                    with col2:
+                        st.metric("Phenotypes", visible_phenotypes,
+                                 delta=f"{visible_phenotypes}/{len(phenotypes)}" if visible_phenotypes < len(phenotypes) else None)
+                    with col3:
+                        st.metric("Diagnostic Measures", visible_diagnostics,
+                                 delta=f"{visible_diagnostics}/{len(diagnostics)}" if visible_diagnostics < len(diagnostics) else None)
+                        
+                    # Add a small vertical space
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Second row for edges
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Gene-Phenotype Edges", visible_gene_pheno_edges)
+                    with col2:
+                        st.metric("Phenotype-Diagnostic Edges", visible_pheno_diag_edges)
+                    with col3:
+                        st.metric("Total Edges", displayed_edges)
         except Exception as e:
             st.error(f"Error rendering graph: {str(e)}")
             st.warning("The graph may be too large to render. Try filtering nodes or reducing graph complexity.")
@@ -720,6 +713,31 @@ try:
                 </ul>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Also update the dropdown in the fallback case
+            with dropdown_container:
+                with st.expander("🧬 DNA Genopath - Statistics 🧬", expanded=False):
+                    # Create columns for a nice layout of statistics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Genes", len(genes))
+                    with col2:
+                        st.metric("Phenotypes", len(phenotypes))
+                    with col3:
+                        st.metric("Diagnostic Measures", len(diagnostics))
+                        
+                    # Add a small vertical space
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Second row for edges
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Gene-Phenotype Edges", graph_stats["gene_to_pheno_edges"])
+                    with col2:
+                        st.metric("Phenotype-Diagnostic Edges", graph_stats["pheno_to_diag_edges"])
+                    with col3:
+                        st.metric("Total Edges", graph_stats["total_edges"])
         except:
             st.error("Unable to display graph visualization. The dataset may be too large.")
     
