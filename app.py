@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="GenoPhenoPath 3D Knowledge Graph",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="collapsed"  # Sidebar completely hidden
+    initial_sidebar_state="expanded"  # Show sidebar by default for better discoverability
 )
 
 # Add custom CSS for dark spacey theme
@@ -57,6 +57,31 @@ st.markdown("""
     .css-1d391kg, [data-testid="stSidebar"] {
         background-color: #000000 !important;
         border-right: 1px solid rgba(139, 233, 253, 0.2);
+    }
+    
+    /* Make sidebar headers stand out */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
+        color: #8be9fd !important;
+        font-weight: 600 !important;
+        margin-top: 1rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Style sidebar checkboxes */
+    [data-testid="stSidebar"] [data-testid="stCheckbox"] {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Style sidebar sliders */
+    [data-testid="stSidebar"] [data-testid="stSlider"] {
+        margin-bottom: 1.2rem !important;
+    }
+    
+    /* Improve spacing between sections */
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {
+        margin-bottom: 0.5rem !important;
     }
     
     /* Hide the sidebar toggle completely */
@@ -230,65 +255,54 @@ with st.expander("🧬 DNA Genopath - Statistics 🧬", expanded=False):
 
 # Description will be moved below the plotly figure
 
-# Create sidebar with dropdown sections for easier navigation
+# Create a simplified sidebar with better user experience
 with st.sidebar:
-    st.header("GenoPhenoPath Controls")
+    st.header("Display Controls")
     
-    # Main visibility section - always visible for quick toggling
-    st.write("##### Quick Display Controls")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        show_genes = st.checkbox("Genes", value=True)
-    with col2:
-        show_phenotypes = st.checkbox("Phenotypes", value=True)
-    with col3:
-        show_diagnostics = st.checkbox("Diagnostics", value=True)
+    # Section for node visibility - clean and simple layout
+    st.subheader("Show/Hide Nodes")
+    show_genes = st.checkbox("Genes (blue)", value=True)
+    show_phenotypes = st.checkbox("Phenotypes (orange)", value=True)
+    show_diagnostics = st.checkbox("Diagnostic Measures (magenta)", value=True)
     
-    # Search - always visible at the top level
+    # Section for connections
+    st.subheader("Show/Hide Connections")
+    show_gene_pheno_edges = st.checkbox("Gene-Phenotype Connections", value=True)
+    show_pheno_diag_edges = st.checkbox("Phenotype-Diagnostic Connections", value=True)
+    
+    # Add a search option
+    st.subheader("Search")
     search_term = st.text_input("🔍 Search for a node")
     
-    # Gene settings in a collapsible section
-    with st.expander("Gene Settings 🧬", expanded=False):
-        gene_size = st.slider("Size", min_value=1, max_value=20, value=10)
-        gene_opacity = st.slider("Opacity", min_value=0.1, max_value=1.0, value=0.9, step=0.1)
-        show_gene_pheno_edges = st.checkbox("Show connections to phenotypes", value=True)
-        gene_pheno_opacity = st.slider("Connection opacity", min_value=0.1, max_value=1.0, value=0.4, step=0.1)
+    # Size and appearance controls (simplified)
+    st.subheader("Node Size")
+    gene_size = st.slider("Gene Size", min_value=1, max_value=20, value=10)
+    phenotype_size = st.slider("Phenotype Size", min_value=1, max_value=10, value=3)
+    diagnostic_size = st.slider("Diagnostic Size", min_value=1, max_value=15, value=8)
     
-    # Phenotype settings in a collapsible section
-    with st.expander("Phenotype Settings 🔶", expanded=False):
-        phenotype_size = st.slider("Size", min_value=1, max_value=10, value=3)
-        phenotype_opacity = st.slider("Opacity", min_value=0.1, max_value=1.0, value=0.2, step=0.1)
-        show_pheno_diag_edges = st.checkbox("Show connections to diagnostics", value=True)
-        pheno_diag_opacity = st.slider("Connection opacity", min_value=0.1, max_value=1.0, value=0.3, step=0.1)
+    # Opacity controls
+    st.subheader("Opacity")
+    gene_opacity = st.slider("Gene Opacity", min_value=0.1, max_value=1.0, value=0.9, step=0.1)
+    phenotype_opacity = st.slider("Phenotype Opacity", min_value=0.1, max_value=1.0, value=0.2, step=0.1)
+    diagnostic_opacity = st.slider("Diagnostic Opacity", min_value=0.1, max_value=1.0, value=0.7, step=0.1)
+    gene_pheno_opacity = st.slider("Gene-Phenotype Connection Opacity", min_value=0.1, max_value=1.0, value=0.4, step=0.1)
+    pheno_diag_opacity = st.slider("Phenotype-Diagnostic Connection Opacity", min_value=0.1, max_value=1.0, value=0.3, step=0.1)
     
-    # Diagnostic measures settings in a collapsible section
-    with st.expander("Diagnostic Settings 🔬", expanded=False):
-        diagnostic_size = st.slider("Size", min_value=1, max_value=15, value=8)
-        diagnostic_opacity = st.slider("Opacity", min_value=0.1, max_value=1.0, value=0.7, step=0.1)
+    # Performance control
+    st.subheader("Performance")
+    edge_limit = st.select_slider(
+        "Edge Limit",
+        options=[100, 250, 500, 750, 1000, "No Limit"],
+        value=1000,
+        help="Limit edges to improve performance"
+    )
     
-    # Advanced settings in a collapsible section
-    with st.expander("Advanced Settings ⚙️", expanded=False):
-        st.write("##### Rendering Controls")
-        # Add a button to regenerate the graph
-        if st.button("Regenerate Graph"):
-            st.cache_data.clear()
-        
-        # Add a button to download current view
-        if st.button("Download Current View"):
-            st.info("Click the camera icon in the graph toolbar to save the current view")
-        
-        # Performance settings
-        st.write("##### Performance Settings")
-        st.write("Use these settings if the graph is slow to load")
-        st.select_slider(
-            "Edge Limit",
-            options=[100, 250, 500, 750, 1000, "No Limit"],
-            value=1000,
-            key="edge_limit",
-            help="Limit the number of edges to improve performance"
-        )
+    # Action buttons
+    st.subheader("Actions")
+    if st.button("Regenerate Graph"):
+        st.cache_data.clear()
     
-    # Add attribution at the bottom
+    # Credit at the bottom
     st.markdown("---")
     st.caption("GenoPhenoPath by [Niklas Winnewisser](https://github.com/niklaswinner)")
     st.caption("Built with Streamlit & Plotly")
