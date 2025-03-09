@@ -8,15 +8,15 @@ st.set_page_config(
     page_title="GenoPhenoPath 3D Knowledge Graph",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Add custom CSS for dark spacey theme
 st.markdown("""
 <style>
-    /* Dark spacey background with subtle gradient */
+    /* Pure black background */
     .stApp {
-        background: linear-gradient(to bottom, #0f1624, #1a1a2e);
+        background: #000000;
     }
     
     /* Title styling */
@@ -33,7 +33,7 @@ st.markdown("""
     
     /* Sidebar styling */
     .css-1d391kg, [data-testid="stSidebar"] {
-        background-color: rgba(26, 32, 44, 0.8) !important;
+        background-color: #000000 !important;
         border-right: 1px solid rgba(139, 233, 253, 0.2);
     }
     
@@ -73,6 +73,11 @@ st.markdown("""
         background-color: rgba(30, 41, 59, 0.8) !important;
         border: 1px solid rgba(139, 233, 253, 0.2) !important;
     }
+    
+    /* Make plotly background match app background */
+    .js-plotly-plot, .plotly, .plot-container {
+        background: #000000 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,18 +91,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Create a container for the description
-with st.container():
-    st.markdown("""
-    <div style='background-color: rgba(26, 32, 44, 0.6); padding: 15px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2);'>
-        This visualization maps the relationships between:
-        <ul>
-            <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
-            <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
-            <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
+# Description will be moved below the plotly figure
 
 # Create sidebar with dropdown sections for easier navigation
 with st.sidebar:
@@ -452,11 +446,16 @@ try:
         # Create a new figure with the updated data
         updated_fig = go.Figure(data=fig_data, layout=fig.layout)
         
-        # Set the figure height to fill most of the screen
-        updated_fig.update_layout(height=800)
+        # Set the figure height to fill most of the screen and hide the legend
+        updated_fig.update_layout(
+            height=800,
+            showlegend=False,
+            paper_bgcolor="black",
+            plot_bgcolor="black"
+        )
         
-        # Check if any node types are shown for tick visibility
-        show_ticks = any([show_genes, show_phenotypes, show_diagnostics])
+        # Always hide ticks and axis labels
+        show_ticks = False
         
         # Update scene settings based on visibility
         updated_fig.update_layout(
@@ -466,22 +465,26 @@ try:
                     showspikes=show_ticks,
                     showgrid=show_ticks,
                     showline=show_ticks,
-                    zeroline=show_ticks
+                    zeroline=show_ticks,
+                    backgroundcolor="black"
                 ),
                 yaxis=dict(
                     showticklabels=show_ticks,
                     showspikes=show_ticks,
                     showgrid=show_ticks,
                     showline=show_ticks,
-                    zeroline=show_ticks
+                    zeroline=show_ticks,
+                    backgroundcolor="black"
                 ),
                 zaxis=dict(
                     showticklabels=show_ticks,
                     showspikes=show_ticks,
                     showgrid=show_ticks,
                     showline=show_ticks,
-                    zeroline=show_ticks
-                )
+                    zeroline=show_ticks,
+                    backgroundcolor="black"
+                ),
+                bgcolor="black"
             )
         )
         
@@ -509,6 +512,18 @@ try:
         # Display the interactive 3D graph with a try-catch for memory issues
         try:
             st.plotly_chart(updated_fig, use_container_width=True)
+            
+            # Add the explanation text below the plotly figure
+            st.markdown("""
+            <div style='background-color: #000000; padding: 15px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2);'>
+                This visualization maps the relationships between:
+                <ul>
+                    <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
+                    <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
+                    <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Error rendering graph: {str(e)}")
             st.warning("The graph may be too large to render. Try filtering nodes or reducing graph complexity.")
@@ -518,6 +533,18 @@ try:
         # Fallback - try to show the original figure
         try:
             st.plotly_chart(fig, use_container_width=True)
+            
+            # Add the explanation text below the plotly figure
+            st.markdown("""
+            <div style='background-color: #000000; padding: 15px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2);'>
+                This visualization maps the relationships between:
+                <ul>
+                    <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
+                    <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
+                    <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
         except:
             st.error("Unable to display graph visualization. The dataset may be too large.")
     
