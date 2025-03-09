@@ -31,12 +31,14 @@ st.markdown("""
     .main .block-container {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
-        margin-top: 0 !important;
+        margin-top: -39px !important;  /* 30% more negative margin to further reduce space */
     }
     
     /* Remove extra padding from the root container */
-    .css-k1vhr4, .css-18e3th9, .css-1d391kg {
+    .css-k1vhr4, .css-18e3th9, .css-1d391kg, 
+    [data-testid="stVerticalBlock"] {
         padding-top: 0 !important;
+        margin-top: -20px !important;  /* 30% more negative margin */
     }
     
     /* Target the top toolbar area */
@@ -92,10 +94,10 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Position our custom dropdown bar with a little space at the top */
+    /* Position our custom dropdown bar at the very top */
     div[data-testid="stExpander"] {
         position: fixed !important;
-        top: 10px !important;
+        top: 0px !important;
         left: 10% !important;
         right: 0 !important;
         z-index: 9999 !important;
@@ -150,9 +152,10 @@ st.markdown("""
         box-shadow: none !important;
     }
     
-    /* Add padding to the main content to prevent overlap with fixed header */
+    /* Remove padding from the main content to eliminate space at the top */
     .main .block-container {
-        padding-top: 50px !important;
+        padding-top: 0px !important;
+        margin-top: -52px !important;  /* 30% more negative margin (from -40px to -52px) */
     }
     
     /* Button styling */
@@ -309,7 +312,6 @@ with st.sidebar:
     
     # Credit at the bottom
     st.markdown("---")
-    st.caption("GenoPhenoPath by [Niklas Winnewisser](https://github.com/niklaswinner)")
     st.caption("Built with Streamlit & Plotly")
 
 # Import the spinning.py script functionality
@@ -642,12 +644,14 @@ try:
         # Create a new figure with the updated data
         updated_fig = go.Figure(data=fig_data, layout=fig.layout)
         
-        # Set the figure height to fill most of the screen and hide the legend
+        # Set the figure height to 63.65% of original and hide the legend
         updated_fig.update_layout(
-            height=800,
+            height=509,  # 95% of 536 (additional 5% reduction)
+            width=637,   # 95% of 670 (additional 5% reduction)
             showlegend=False,
             paper_bgcolor="black",
-            plot_bgcolor="black"
+            plot_bgcolor="black",
+            margin=dict(t=0, l=0, r=0, b=0)  # Remove all margins around the plot
         )
         
         # Always hide ticks and axis labels
@@ -680,7 +684,11 @@ try:
                     zeroline=show_ticks,
                     backgroundcolor="black"
                 ),
-                bgcolor="black"
+                bgcolor="black",
+                # Increase zoom by 10% (additional 5%)
+                camera=dict(
+                    eye=dict(x=0.90, y=0.90, z=0.90)  # Further reducing eye distance for more zoom
+                )
             )
         )
         
@@ -764,6 +772,19 @@ try:
                 
         # Clear the animation placeholder
         animation_placeholder.empty()
+        
+        # Add custom styling to further reduce top space for plotly chart
+        st.markdown("""
+        <style>
+            [data-testid="element-container"] {
+                margin-top: -50px !important;
+                padding-top: 0 !important;
+            }
+            iframe {
+                margin-top: -30px !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
         
         # Display the interactive 3D graph with a try-catch for memory issues
         try:
