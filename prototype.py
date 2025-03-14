@@ -308,31 +308,34 @@ def create_knowledge_graph():
         z_coords = [spring_3D[edge[0]][2], spring_3D[edge[1]][2], None]
         pheno_diag_z.extend(z_coords)
     
-    # Create gene-to-phenotype edges trace (blue lines) with reduced width to 63.65% of original
+    # Calculate the final reduction percentage (0.6365 = 0.95 * 0.67)
+    reduction_factor = 0.6365
+
+    # Create gene-to-phenotype edges trace (blue lines) with reduced width
     trace_edges_gene_pheno = go.Scatter3d(
         x=gene_pheno_x,
         y=gene_pheno_y,
         z=gene_pheno_z,
         mode='lines',
-        line=dict(color='blue', width=0.26),  # 95% of 0.27 (additional 5% reduction)
+        line=dict(color='blue', width=0.3*reduction_factor),  # Reduced to 63.65% of original 0.3
         opacity=0.4,
         hoverinfo='none',
         name='Gene-Phenotype Connections'
     )
     
-    # Create phenotype-to-diagnostic edges trace (orange lines) with reduced width to 63.65% of original
+    # Create phenotype-to-diagnostic edges trace (orange lines) with reduced width
     trace_edges_pheno_diag = go.Scatter3d(
         x=pheno_diag_x,
         y=pheno_diag_y,
         z=pheno_diag_z,
         mode='lines',
-        line=dict(color='orange', width=0.19),  # 95% of 0.2 (additional 5% reduction)
+        line=dict(color='orange', width=0.2*reduction_factor),  # Reduced to 63.65% of original 0.2
         opacity=0.3,
         hoverinfo='none',
         name='Phenotype-Diagnostic Connections'
     )
 
-    # Create gene nodes trace (blue color) with reduced size to 63.65% of original (67% * 95%)
+    # Create gene nodes trace (blue color) with reduced size
     trace_nodes_gene = go.Scatter3d(
         x=x_nodes_gene,
         y=y_nodes_gene,
@@ -340,7 +343,7 @@ def create_knowledge_graph():
         mode='markers',
         marker=dict(
             symbol='circle',
-            size=6.37,  # 95% of 6.7 (additional 5% reduction)
+            size=10*reduction_factor,  # Reduced to 63.65% of original 10
             color="blue",
             line=dict(width=0)  # No border line
         ),
@@ -350,7 +353,7 @@ def create_knowledge_graph():
         name='Genes'
     )
 
-    # Create phenotype nodes trace (orange color) with reduced size to 63.65% of original
+    # Create phenotype nodes trace (orange color) with reduced size
     trace_nodes_phenotype = go.Scatter3d(
         x=x_nodes_phenotype,
         y=y_nodes_phenotype,
@@ -358,7 +361,7 @@ def create_knowledge_graph():
         mode='markers',
         marker=dict(
             symbol='circle',
-            size=1.9,  # 95% of 2 (additional 5% reduction)
+            size=3*reduction_factor,  # Reduced to 63.65% of original 3
             color="orange",
             line=dict(width=0)  # No border line
         ),
@@ -368,7 +371,7 @@ def create_knowledge_graph():
         name='Phenotypes'
     )
 
-    # Create diagnostic nodes trace (magenta color) with reduced size to 63.65% of original
+    # Create diagnostic nodes trace (magenta color) with reduced size
     trace_nodes_diagnostic = go.Scatter3d(
         x=x_nodes_diagnostic,
         y=y_nodes_diagnostic,
@@ -376,7 +379,7 @@ def create_knowledge_graph():
         mode='markers',
         marker=dict(
             symbol='circle',
-            size=5.13,  # 95% of 5.4 (additional 5% reduction)
+            size=8*reduction_factor,  # Reduced to 63.65% of original 8
             color="magenta",
             line=dict(width=0)  # No border line
         ),
@@ -415,12 +418,17 @@ def create_knowledge_graph():
     min_node_degree_diagnostic = np.min([j for i, j in G.degree(community_2)])
     min_node_name_diagnostic = str([tup[0] for tup in G.degree(community_2) if tup[1] == min_node_degree_diagnostic]).replace("'","").replace("[","").replace("]","")
 
-    # Create a dark spacey layout for the 3D graph with reduced layout to 63.65% of original
+    # Create a dark spacey layout for the 3D graph with reduced layout
+    # Apply the same reduction factor to layout dimensions (0.6365 = 0.95 * 0.67)
+    original_width = 1000
+    original_height = 800
+    original_margin_top = 50
+    
     layout = go.Layout(
         # No title
         title_text = "",
-        width=637,  # 95% of 670 (additional 5% reduction)
-        height=509,  # 95% of 536 (additional 5% reduction)
+        width=original_width * reduction_factor,
+        height=original_height * reduction_factor,
         showlegend=False,  # Hide legend
         legend=dict(
             font=dict(color="#f8f8f2"),
@@ -437,14 +445,14 @@ def create_knowledge_graph():
                       gridcolor="#1a1a2e", 
                       zerolinecolor="#1a1a2e"),
             bgcolor="rgb(5, 10, 25)",  # Dark space background
-            # Add camera settings to increase zoom by 10% (additional 5%)
+            # Add camera settings to increase zoom
             camera=dict(
-                eye=dict(x=0.90, y=0.90, z=0.90)  # Further reducing eye distance for more zoom
+                eye=dict(x=1.0 * reduction_factor, y=1.0 * reduction_factor, z=1.0 * reduction_factor)  # Reduced eye distance for more zoom
             )
         ),
         paper_bgcolor="rgba(0,0,0,0)",  # Transparent paper bg to blend with app bg
         plot_bgcolor="rgba(0,0,0,0)",   # Transparent plot bg
-        margin=dict(t=32, l=0, r=0, b=0),  # 95% of 34 (additional 5% reduction)
+        margin=dict(t=original_margin_top * reduction_factor, l=0, r=0, b=0),
         hovermode='closest'
     )
 

@@ -315,7 +315,7 @@ with st.sidebar:
     st.caption("Built with Streamlit & Plotly")
 
 # Import the spinning.py script functionality
-def render_dna_frame(frame_num, width=70, height=30):
+def render_dna_frame(frame_num, max_frames, width=70, height=30):
     """Generate a single frame of DNA helix animation"""
     # Configuration
     radius = 10
@@ -339,7 +339,7 @@ def render_dna_frame(frame_num, width=70, height=30):
             continue
         
         # Calculate the phase for this position
-        phase = y_offset / 4 + frame_num / 10
+        phase = y_offset / 4 + frame_num / max_frames
         
         # Determine which character to use based on position
         char_index = (y_offset + helix_length) % 4
@@ -393,113 +393,11 @@ def load_knowledge_graph():
 
 # Try to load the graph data
 try:
-    # Create DNA animation frames
-    dna_frames = [
-        """
-        ```
-          A------T
-         /        \\
-        G          C
-       |            |
-       |            |
-        G          C
-         \\        /
-          T------A
-        ```
-        """,
-        """
-        ```
-         A--------T
-         /        \\
-        |          |
-        G          C
-        |          |
-         \\        /
-          T------A
-        ```
-        """,
-        """
-        ```
-           A---T
-          /     \\
-         /       \\
-        G         C
-        |         |
-        |         |
-         \\       /
-          T-----A
-        ```
-        """,
-        """
-        ```
-              A
-            /   \\
-           /     \\
-          G       T
-         /|       |\\
-        | |       | |
-        | |       | |
-         \\|       |/
-          C       A
-           \\     /
-            \\   /
-              G
-        ```
-        """,
-        """
-        ```
-              T
-             / \\
-            C   A
-           /|   |\\
-          / |   | \\
-          | |   | |
-          \\ |   | /
-           \\|   |/
-            G   T
-             \\ /
-              A
-        ```
-        """,
-        """
-        ```
-           T---A
-          /     \\
-         /       \\
-        C         G
-        |         |
-        |         |
-         \\       /
-          A-----T
-        ```
-        """,
-        """
-        ```
-         T--------A
-         /        \\
-        |          |
-        C          G
-        |          |
-         \\        /
-          A------T
-        ```
-        """,
-        """
-        ```
-          T------A
-         /        \\
-        C          G
-       |            |
-       |            |
-        C          G
-         \\        /
-          A------T
-        ```
-        """
-    ]
-    
+
     # Start loading in background
     import threading
+    
+    ##### 3D Plotly Figure: Load Fundamental Data  #####
     
     result = [None]  # Use a list to store the result since nonlocal isn't available
     loading_complete = [False]  # Flag to indicate when loading is complete
@@ -512,11 +410,13 @@ try:
     # Start the loading in a separate thread
     loading_thread = threading.Thread(target=load_data)
     loading_thread.start()
-    
+    max_dna_frames = 200
     # Show DNA animation while loading
+    
+    ##### Waiting Screen Animation  #####
     with st.spinner(""):
         # Generate frames for the DNA animation
-        frames = [render_dna_frame(i) for i in range(10)]
+        frames = [render_dna_frame(i,max_dna_frames) for i in range(max_dna_frames)]
         frame_index = 0
         
         # Create a placeholder for the DNA animation
@@ -534,7 +434,7 @@ try:
             
             # Move to next frame
             frame_index = (frame_index + 1) % len(frames)
-            time.sleep(0.15)  # Control animation speed
+            time.sleep(0.01)  # Control animation speed
     
     # Clear the animation when done
     animation_placeholder.empty()
@@ -546,6 +446,9 @@ try:
     st.toast(f"Graph loaded in {elapsed_time:.2f} seconds")
     
     # No metrics displayed here - only in the dropdown
+    
+    
+    ##### Search for Terms if Activated #####
     
     # If search term is provided, highlight the matching nodes
     if search_term:
@@ -575,6 +478,8 @@ try:
     
     # Customize the figure based on user settings - with error handling for data structure
     try:
+        
+        ##### 3D Plotly Figure: Update Visibility based on Sliders #####
         fig_data = list(fig.data)
         
         # New trace order:
@@ -644,15 +549,24 @@ try:
         # Create a new figure with the updated data
         updated_fig = go.Figure(data=fig_data, layout=fig.layout)
         
-        # Set the figure height to 63.65% of original and hide the legend
+        ##### 3D Plotly Figure: Figure Size Update  #####
+        
+        # Set the figure dimensions to 63.65% of original and hide the legend
+        # Calculate the reduction factor (0.6365 = 0.95 * 0.67)
+        reduction_factor = 0.6365
+        original_width = 1000
+        original_height = 800
+        
         updated_fig.update_layout(
-            height=509,  # 95% of 536 (additional 5% reduction)
-            width=637,   # 95% of 670 (additional 5% reduction)
+            height=original_height * reduction_factor,
+            width=original_width * reduction_factor,
             showlegend=False,
             paper_bgcolor="black",
             plot_bgcolor="black",
             margin=dict(t=0, l=0, r=0, b=0)  # Remove all margins around the plot
         )
+        
+        ##### 3D Plotly Figure: Coordinate System  #####
         
         # Always hide ticks and axis labels
         show_ticks = False
@@ -685,12 +599,14 @@ try:
                     backgroundcolor="black"
                 ),
                 bgcolor="black",
-                # Increase zoom by 10% (additional 5%)
+                # Apply zoom using the reduction factor
                 camera=dict(
-                    eye=dict(x=0.90, y=0.90, z=0.90)  # Further reducing eye distance for more zoom
+                    eye=dict(x=1.0 * reduction_factor, y=1.0 * reduction_factor, z=1.0 * reduction_factor)  # Reducing eye distance for more zoom
                 )
             )
         )
+        
+        ##### Calculate Statistics #####
         
         # Calculate number of displayed nodes and edges
         displayed_nodes = 0
@@ -746,7 +662,7 @@ try:
             
             # Show DNA animation when settings change
             # Generate frames for the DNA animation
-            frames = [render_dna_frame(i) for i in range(10)]
+            frames = [render_dna_frame(i,max_dna_frames) for i in range(max_dna_frames)]
             frame_index = 0
             
             # Display the spinning DNA animation briefly
