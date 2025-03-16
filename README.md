@@ -143,4 +143,4 @@ git push -u origin main
 
 ## Author
 
-Created by Niklas Winnewisser
+Created by Alex Mordhorst & Niklas Winnewisser
