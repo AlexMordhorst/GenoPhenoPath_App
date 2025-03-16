@@ -541,6 +541,7 @@ if show_pheno_diag_edges and show_phenotypes and show_diagnostics:
     displayed_edges += visible_pheno_diag_edges
 ```
 
+### Here is the chart initiated and the loading screen activated
 
 ### 2.10 Error Handling
 

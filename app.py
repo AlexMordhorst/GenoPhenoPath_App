@@ -314,11 +314,12 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Built with Streamlit & Plotly")
 
+animation_length = 100
 # Import the spinning.py script functionality
-def render_dna_frame(frame_num, width=70, height=30):
+def render_dna_frame(frame_num, width=70, height=50):
     """Generate a single frame of DNA helix animation"""
     # Configuration
-    radius = 10
+    radius = 15
     helix_length = 25
     dna_chars = ['G', 'T', 'C', 'A']  # DNA nucleotide characters
     
@@ -393,111 +394,7 @@ def load_knowledge_graph():
 
 # Try to load the graph data
 try:
-    # Create DNA animation frames
-    dna_frames = [
-        """
-        ```
-          A------T
-         /        \\
-        G          C
-       |            |
-       |            |
-        G          C
-         \\        /
-          T------A
-        ```
-        """,
-        """
-        ```
-         A--------T
-         /        \\
-        |          |
-        G          C
-        |          |
-         \\        /
-          T------A
-        ```
-        """,
-        """
-        ```
-           A---T
-          /     \\
-         /       \\
-        G         C
-        |         |
-        |         |
-         \\       /
-          T-----A
-        ```
-        """,
-        """
-        ```
-              A
-            /   \\
-           /     \\
-          G       T
-         /|       |\\
-        | |       | |
-        | |       | |
-         \\|       |/
-          C       A
-           \\     /
-            \\   /
-              G
-        ```
-        """,
-        """
-        ```
-              T
-             / \\
-            C   A
-           /|   |\\
-          / |   | \\
-          | |   | |
-          \\ |   | /
-           \\|   |/
-            G   T
-             \\ /
-              A
-        ```
-        """,
-        """
-        ```
-           T---A
-          /     \\
-         /       \\
-        C         G
-        |         |
-        |         |
-         \\       /
-          A-----T
-        ```
-        """,
-        """
-        ```
-         T--------A
-         /        \\
-        |          |
-        C          G
-        |          |
-         \\        /
-          A------T
-        ```
-        """,
-        """
-        ```
-          T------A
-         /        \\
-        C          G
-       |            |
-       |            |
-        C          G
-         \\        /
-          A------T
-        ```
-        """
-    ]
-    
+
     # Start loading in background
     import threading
     
@@ -513,10 +410,12 @@ try:
     loading_thread = threading.Thread(target=load_data)
     loading_thread.start()
     
+    
+    
     # Show DNA animation while loading
     with st.spinner(""):
         # Generate frames for the DNA animation
-        frames = [render_dna_frame(i) for i in range(10)]
+        frames = [render_dna_frame(i) for i in range(animation_length)]
         frame_index = 0
         
         # Create a placeholder for the DNA animation
@@ -746,7 +645,7 @@ try:
             
             # Show DNA animation when settings change
             # Generate frames for the DNA animation
-            frames = [render_dna_frame(i) for i in range(10)]
+            frames = [render_dna_frame(i) for i in range(animation_length)]
             frame_index = 0
             
             # Display the spinning DNA animation briefly
