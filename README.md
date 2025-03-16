@@ -15,19 +15,42 @@ GenoPhenoPath is a tool for exploring the relationships between genes, phenotype
 - **Dark Space Theme**: Visually appealing dark mode with a space-inspired design.
 - **Real-time Statistics**: See counts of displayed nodes and edges compared to the total.
 
-## Project Structure
+## New Project Structure
+
+The project has been reorganized with a clean separation between backend and frontend components:
 
 ```
-GenoPhenoPath/Code/
-├── app.py                # Main Streamlit application
-├── prototype.py          # Knowledge graph generation module
-├── Data/                 # Data directory
+GenoPhenoPath_app/
+├── app.py                 # Main application entry point
+├── backend/               # Backend modules
+│   ├── controller.py      # Main backend controller
+│   ├── backA/             # Core data processing
+│   │   ├── data_processing/  # Data loading and preparation
+│   │   ├── ontology/      # Ontology schema definitions
+│   │   ├── knowledge_graph/ # Entity and relationship management
+│   │   └── network/       # NetworkX graph generation
+│   ├── backB/             # Visualization preparation
+│   │   ├── layout/        # 3D layout creation and edge preparation
+│   │   └── visualization/ # Plotly figure generation
+│   └── backC/             # Analysis tools
+│       ├── statistics/    # Graph metrics calculation
+│       └── models/        # Models for data analysis
+├── frontend/              # Frontend modules
+│   ├── frontA/            # Fundamental Streamlit components
+│   │   ├── stages/        # Page configuration and layout setup
+│   │   ├── session/       # State management
+│   │   └── animations/    # Loading and transition animations
+│   └── frontB/            # Application core
+│       ├── app/           # Main application runner
+│       ├── interactions/  # User controls and search functionality
+│       └── display/       # Chart rendering and updating
+├── Data/                  # Data directory
 │   ├── genes_to_phenotype.txt       # Gene-phenotype relationships
 │   ├── maxo_diagnostic_annotations2.txt  # Phenotype-diagnostic relationships
-│   └── vartest.tsv       # Gene variant test data
-├── environment.yml       # Conda environment specification
-├── requirements.txt      # Project dependencies
-└── README.md             # This file
+│   └── vartest.tsv        # Gene variant test data
+├── environment.yml        # Conda environment specification
+├── requirements.txt       # Project dependencies
+└── README.md              # This file
 ```
 
 ## Installation
@@ -37,7 +60,7 @@ GenoPhenoPath/Code/
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/GenoPhenoPath.git
-cd GenoPhenoPath/Code
+cd GenoPhenoPath_app
 ```
 
 2. Create a virtual environment and install the dependencies:
@@ -49,9 +72,9 @@ pip install -r requirements.txt
 
 ### Using Conda
 
-1. Navigate to the Code directory:
+1. Navigate to the project directory:
 ```bash
-cd GenoPhenoPath/Code
+cd GenoPhenoPath_app
 ```
 
 2. Create and activate the conda environment:
@@ -82,7 +105,7 @@ The application uses several data files in the `Data/` directory:
 
 ## Usage
 
-Start the Streamlit application from the Code directory:
+Start the Streamlit application from the project directory:
 
 ```bash
 streamlit run app.py
@@ -101,6 +124,40 @@ streamlit run app.py
    - Scroll to zoom in/out
    - Hover over nodes to see their labels
    - Use the search feature to highlight specific nodes
+
+## Module Descriptions
+
+### Backend Modules
+
+- **backA**: Core data processing and knowledge graph generation
+  - **data_processing/loader.py**: Data loading and preparation from various sources
+  - **ontology/schema.py**: Ontology schema and class definitions
+  - **knowledge_graph/nodes.py**: Entity creation (genes, phenotypes, diagnostics)
+  - **knowledge_graph/edges.py**: Relationship management between entities
+  - **knowledge_graph/builder.py**: Knowledge graph construction orchestration
+  - **network/generator.py**: NetworkX graph creation from ontology
+
+- **backB**: Visualization preparation
+  - **layout/positions.py**: 3D positioning of nodes in concentric shells
+  - **layout/edges.py**: Edge coordinate preparation for visualization
+  - **visualization/plotter.py**: Plotly figure generation and customization
+
+- **backC**: Analysis tools
+  - **statistics/metrics.py**: Graph metrics and statistics calculation
+  - **models/**: Future models for data analysis
+
+### Frontend Modules
+
+- **frontA**: Fundamental Streamlit components
+  - **stages/layout.py**: Page configuration and UI layout setup
+  - **session/state.py**: Session state management
+  - **animations/dna_helix.py**: DNA helix animation for loading states
+
+- **frontB**: Application core
+  - **app/main.py**: Main application orchestration
+  - **interactions/controls.py**: Sidebar controls and settings
+  - **interactions/search.py**: Node search functionality
+  - **display/chart.py**: Chart rendering and updating
 
 ## Deploying to Streamlit Community Cloud
 
