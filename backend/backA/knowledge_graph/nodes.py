@@ -109,6 +109,9 @@ def extract_node_communities(onto: Any) -> Dict[str, List[str]]:
     # Extract diagnostic names from ontology and remove prefix
     for i in onto.Diagnostic.instances():
         community_2.append(str(i).removeprefix("onto."))
+    
+    # Print the number of nodes in each community for debugging
+    print(f"DEBUG - Extracted communities: {len(community_0)} genes, {len(community_1)} phenotypes, {len(community_2)} diagnostics")
         
     return {
         "genes": community_0,
