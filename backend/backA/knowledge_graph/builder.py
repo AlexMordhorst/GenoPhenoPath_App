@@ -11,7 +11,13 @@ Functions in this module are used in:
 from typing import Any, Dict, Tuple
 import owlready2 as owl
 
-from backend.backA.data_processing.loader import load_all_data
+from backend.backA.data_processing.loader import (
+    load_unique_genes,
+    load_unique_phenotypes,
+    load_unique_diagnostics,
+    load_gene_phenotype_relations,
+    load_phenotype_diagnostic_relations
+)
 from backend.backA.ontology.schema import create_ontology_schema
 from backend.backA.knowledge_graph.nodes import (
     create_gene_nodes, 
@@ -29,7 +35,7 @@ def build_knowledge_graph() -> Tuple[Any, Dict[str, list]]:
     Build the complete knowledge graph from data sources.
     
     This function orchestrates the entire knowledge graph creation process:
-    1. Load all necessary data
+    1. Load all necessary data directly from individual loaders
     2. Create ontology schema
     3. Populate nodes (genes, phenotypes, diagnostics)
     4. Establish relationships between nodes
@@ -43,20 +49,24 @@ def build_knowledge_graph() -> Tuple[Any, Dict[str, list]]:
     Used in:
     - backend.backA.network.generator.create_networkx_graph
     """
-    # Load all required data
-    data = load_all_data()
+    # Load data directly using individual loaders
+    unique_genes = load_unique_genes()
+    unique_phenotypes = load_unique_phenotypes()
+    unique_diagnostics = load_unique_diagnostics()
+    gene_phenotype_relations = load_gene_phenotype_relations()
+    phenotype_diagnostic_relations = load_phenotype_diagnostic_relations()
     
     # Create ontology schema
     onto = create_ontology_schema()
     
     # Populate nodes
-    create_gene_nodes(onto, data["unique_genes"])
-    create_phenotype_nodes(onto, data["unique_phenotypes"])
-    create_diagnostic_nodes(onto, data["diagnostic_data"])
+    create_gene_nodes(onto, unique_genes)
+    create_phenotype_nodes(onto, unique_phenotypes)
+    create_diagnostic_nodes(onto, unique_diagnostics)
     
     # Establish relationships
-    create_gene_phenotype_relations(onto, data["gene_phenotype"])
-    create_phenotype_diagnostic_relations(onto, data["diagnostic_data"])
+    create_gene_phenotype_relations(onto, gene_phenotype_relations)
+    create_phenotype_diagnostic_relations(onto, phenotype_diagnostic_relations)
     
     # Extract node communities
     communities = extract_node_communities(onto)
