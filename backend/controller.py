@@ -10,7 +10,7 @@ Functions in this module are used in:
 - frontend.frontB.display.chart: For displaying the visualization
 """
 
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List, Optional
 
 import networkx as nx
 import plotly.graph_objects as go
@@ -21,7 +21,7 @@ from backend.backB.layout.positions import create_3d_layout, prepare_coordinates
 from backend.backB.layout.edges import identify_edge_types
 from backend.backB.visualization.plotter import create_visualization
 
-def create_knowledge_graph(max_edges: int = 1000) -> Tuple[go.Figure, Dict[str, list], Dict[str, list], Dict[str, list], Dict[str, Any], nx.DiGraph, Dict[str, Any]]:
+def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges: int = 1000) -> Tuple[go.Figure, Dict[str, list], Dict[str, list], Dict[str, list], Dict[str, Any], nx.DiGraph, Dict[str, Any]]:
     """
     Create the complete knowledge graph and visualization.
     
@@ -32,6 +32,7 @@ def create_knowledge_graph(max_edges: int = 1000) -> Tuple[go.Figure, Dict[str, 
     4. Generate the interactive Plotly visualization
     
     Args:
+        selected_genes: Optional list of gene symbols to filter the graph
         max_edges: Maximum number of edges to include in visualization (for performance)
         
     Returns:
@@ -47,8 +48,9 @@ def create_knowledge_graph(max_edges: int = 1000) -> Tuple[go.Figure, Dict[str, 
     Used in:
     - frontend.frontB.app.main.load_knowledge_graph
     """
-    # Build knowledge graph from ontology
-    onto, communities = build_knowledge_graph()
+    # Build knowledge graph from ontology with optional gene filtering
+    print(f"DEBUG - Selected genes in create_knowledge_graph: {selected_genes if selected_genes else 'None'}")
+    onto, communities = build_knowledge_graph(selected_genes)
     
     # Convert to NetworkX
     G, edge_counts = create_networkx_graph(onto, communities)
