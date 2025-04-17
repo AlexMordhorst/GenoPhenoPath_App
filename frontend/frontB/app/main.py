@@ -16,11 +16,12 @@ import pandas as pd
 from typing import Any, Dict, List, Tuple
 
 from frontend.frontA.stages.layout import configure_page_settings, apply_custom_css, create_layout_containers
-from frontend.frontA.session.state import initialize_graph_statistics, initialize_ui_state
+from frontend.frontA.session.state import initialize_graph_statistics, initialize_ui_state, reset_application_state
 from frontend.frontA.animations.dna_helix import generate_animation_frames, display_dna_animation
 from frontend.frontB.interactions.controls import create_sidebar_controls
 from frontend.frontB.display.chart import update_visualization
 from backend.backA.data_processing.loader import load_unique_genes
+from backend.backA.ontology.schema import clear_ontology
 
 def load_knowledge_graph(selected_genes=None):
     """
@@ -190,6 +191,25 @@ def create_landing_page():
         st.write(f"Selected genes ({len(selected_genes)}):")
         st.write(", ".join(selected_genes))
     
+    # Add a button to reset the ontology (clear knowledge graph)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Maintenance")
+    if st.sidebar.button("Reset Knowledge Graph"):
+        with st.spinner("Resetting knowledge graph..."):
+            # Clear the ontology
+            clear_ontology()
+            st.success("Knowledge graph has been reset.")
+            
+            # Also reset application state
+            reset_application_state()
+    
+    # Add explanation for the reset button
+    with st.sidebar.expander("What does Reset do?"):
+        st.write("""
+        The Reset button clears all entities from the knowledge graph. 
+        Use this if you experience issues with gene selection or visualization.
+        """)
+    
     return selected_genes
 
 def run_app():
@@ -244,7 +264,11 @@ def run_app():
         else:
             # Add a button to return to gene selection
             if st.button("← Back to Gene Selection"):
-                st.session_state.show_visualization = False
+                # Clear the ontology to remove all gene entities
+                clear_ontology()
+                
+                # Use comprehensive reset function to clear all application state
+                reset_application_state()
                 st.rerun()
             
             # Set up layout containers

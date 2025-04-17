@@ -10,7 +10,7 @@ Functions in this module are used in:
 """
 
 import streamlit as st
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 def initialize_graph_statistics():
     """
@@ -100,3 +100,49 @@ def update_graph_statistics(
         'visible_pheno_diag_edges': visible_pheno_diag_edges,
         'visible_total_edges': displayed_edges
     }
+
+def reset_application_state():
+    """
+    Reset all application state variables when returning to the landing page.
+    
+    This function clears all session state variables related to the knowledge graph,
+    selected genes, and visualization state to ensure a clean slate for the next 
+    visualization.
+    
+    Used in:
+    - frontend.frontB.app.main.run_app
+    """
+    # Reset selected genes
+    if 'selected_genes' in st.session_state:
+        st.session_state.selected_genes = []
+    
+    # Reset visualization state
+    if 'show_visualization' in st.session_state:
+        st.session_state.show_visualization = False
+    
+    # Reset graph statistics
+    if 'graph_statistics' in st.session_state:
+        st.session_state.graph_statistics = {
+            'gene_count': 0,
+            'phenotype_count': 0,
+            'diagnostic_count': 0,
+            'gene_pheno_edges': 0,
+            'pheno_diag_edges': 0,
+            'total_edges': 0,
+            'visible_genes': 0,
+            'visible_phenotypes': 0,
+            'visible_diagnostics': 0,
+            'visible_gene_pheno_edges': 0,
+            'visible_pheno_diag_edges': 0,
+            'visible_total_edges': 0
+        }
+    
+    # Clear any cached data that might be stored in session state
+    keys_to_clear = [
+        'fig', 'genes', 'phenotypes', 'diagnostics', 
+        'layout_3d', 'graph', 'graph_stats'
+    ]
+    
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
