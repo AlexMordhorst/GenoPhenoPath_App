@@ -24,14 +24,20 @@ def configure_page_settings():
         page_title="GenoPhenoPath 3D Knowledge Graph",
         page_icon="🧬",
         layout="wide",
-        initial_sidebar_state="collapsed"  # Hide sidebar by default
+        initial_sidebar_state="collapsed",  # Ensure sidebar is hidden
+        menu_items={
+            'Get Help': None,
+            'Report a bug': None,
+            'About': "GenoPhenoPath: 3D Knowledge Graph for Genome-Phenotype-Diagnostic Visualization"
+        }
     )
 
 def apply_custom_css():
     """
     Apply custom CSS styling to the application.
     
-    This function adds dark space-themed styling to create a visually appealing interface.
+    This function adds dark space-themed styling to create a visually appealing interface
+    with enhanced tab navigation, and makes the app fill the entire browser window.
     
     Used in:
     - frontend.frontB.app.main.run_app
@@ -39,33 +45,92 @@ def apply_custom_css():
     # Add custom CSS for dark spacey theme
     st.markdown("""
     <style>
-        /* Pure black background */
+        /* MORE AGGRESSIVE FULLSCREEN APPROACH */
+        /* Target ALL containers and elements to fill screen */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* The root app container itself */
         .stApp {
             background: #000000;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
         }
         
-        /* Hide and remove the top header bar completely */
-        header {
-            display: none !important;
+        /* Main content container */
+        [data-testid="stAppViewBlockContainer"] {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: auto !important;
         }
         
-        /* Target the main elements that create margins/padding */
+        /* Target the actual content wrappers */
+        .main, .main-content, section, 
+        .block-container, [data-testid="stVerticalBlock"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Ensure content doesn't have scrollbars unless needed */
         .main .block-container {
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-            margin-top: -39px !important;  /* 30% more negative margin to further reduce space */
+            padding: 0.5rem !important;
         }
         
-        /* Remove extra padding from the root container */
-        .css-k1vhr4, .css-18e3th9, .css-1d391kg, 
-        [data-testid="stVerticalBlock"] {
-            padding-top: 0 !important;
-            margin-top: -20px !important;  /* 30% more negative margin */
-        }
-        
-        /* Target the top toolbar area */
-        [data-testid="stToolbar"] {
+        /* Remove Streamlit branding */
+        #MainMenu, header, footer, [data-testid="stToolbar"] {
             display: none !important;
+            visibility: hidden !important;
+        }
+        
+        /* Hide ALL hidden overflow that might create borders */
+        .withScreencast, .css-ffhzg2, 
+        .css-1db87p3, .css-1vq4p4l {
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            max-width: 100vw !important;
+        }
+        
+        /* Hide scrollbar but allow scrolling */
+        /* For Chrome, Safari and Opera */
+        .main::-webkit-scrollbar {
+            display: none;
+        }
+        /* For Firefox */
+        .main {
+            scrollbar-width: none;
+        }
+        /* For IE and Edge */
+        .main {
+            -ms-overflow-style: none;
+        }
+        
+        /* Force any viewport units to be calculated correctly */
+        .stApp [style*="vh"], .stApp [style*="vw"],
+        .stApp [style*="height"], .stApp [style*="width"] {
+            box-sizing: border-box !important;
         }
         
         /* Title styling */
@@ -73,6 +138,7 @@ def apply_custom_css():
             color: #8be9fd !important;
             font-family: 'Courier New', monospace !important;
             text-shadow: 0 0 10px rgba(139, 233, 253, 0.7);
+            margin-top: 0.5rem !important;
         }
         
         /* Make text and labels more visible on dark background */
@@ -80,35 +146,13 @@ def apply_custom_css():
             color: #f8f8f2 !important;
         }
         
-        /* Sidebar styling */
-        .css-1d391kg, [data-testid="stSidebar"] {
-            background-color: #000000 !important;
-            border-right: 1px solid rgba(139, 233, 253, 0.2);
-        }
-        
-        /* Make sidebar headers stand out */
-        [data-testid="stSidebar"] h1, 
-        [data-testid="stSidebar"] h2, 
-        [data-testid="stSidebar"] h3 {
-            color: #8be9fd !important;
-            font-weight: 600 !important;
-            margin-top: 1rem !important;
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* Style sidebar checkboxes */
-        [data-testid="stSidebar"] [data-testid="stCheckbox"] {
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* Style sidebar sliders */
-        [data-testid="stSidebar"] [data-testid="stSlider"] {
-            margin-bottom: 1.2rem !important;
-        }
-        
-        /* Improve spacing between sections */
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {
-            margin-bottom: 0.5rem !important;
+        /* Sidebar styling - hide completely, we're not using it */
+        section[data-testid="stSidebar"] {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
         
         /* Hide the sidebar toggle completely */
@@ -116,82 +160,11 @@ def apply_custom_css():
             display: none !important;
         }
         
-        /* Position our custom dropdown bar at the very top */
-        div[data-testid="stExpander"] {
-            position: fixed !important;
-            top: 0px !important;
-            left: 10% !important;
-            right: 0 !important;
-            z-index: 9999 !important;
-            width: 80% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-        
-        /* Style the dropdown header itself */
-        .streamlit-expanderHeader {
-            background-color: rgba(30, 41, 59, 0.8) !important;
-            border: none !important;
-            border-radius: 0 !important; /* Remove border radius for a menu bar look */
-            color: #8be9fd !important;
-            font-weight: 500 !important;
-            margin: 0 !important;
-            width: 100% !important;
-            padding: 5px 10px !important;
-            box-shadow: none !important;
-            outline: none !important;
-        }
-        
-        /* Style the dropdown content */
-        .streamlit-expanderContent {
-            background-color: rgba(15, 20, 30, 0.8) !important;
-            border-radius: 0 0 4px 4px !important;
-            border: none !important;
-            padding: 10px !important;
-            margin: 0 !important;
-            width: 100% !important;
-            box-shadow: none !important;
-        }
-        
-        /* Remove additional outlines and borders that might appear */
-        .streamlit-expanderHeader:focus, .streamlit-expanderHeader:hover,
-        .streamlit-expanderContent:focus, .streamlit-expanderContent:hover {
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-        }
-        
-        /* Style the expander arrow */
-        .streamlit-expanderHeader svg {
-            color: #8be9fd !important;
-            fill: #8be9fd !important;
-        }
-        
-        /* Remove the white outline around the icon */
-        .st-emotion-cache-1w5q6cr, .css-1w5q6cr {
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-        }
-        
-        /* Remove padding from the main content to eliminate space at the top */
-        .main .block-container {
-            padding-top: 0px !important;
-            margin-top: -52px !important;  /* 30% more negative margin (from -40px to -52px) */
-        }
-        
         /* Button styling */
         .stButton button {
             background-color: #483d8b !important;
             color: white !important;
             border: none !important;
-            border-radius: 4px !important;
-        }
-        
-        /* Expander styling */
-        .streamlit-expanderHeader {
-            background-color: #272733 !important;
-            color: #8be9fd !important;
             border-radius: 4px !important;
         }
         
@@ -229,20 +202,125 @@ def apply_custom_css():
             border: 1px solid rgba(139, 233, 253, 0.2) !important;
         }
         
+        /* PLOTLY CHART FULLSCREEN BEHAVIOR */
         /* Make plotly background match app background */
         .js-plotly-plot, .plotly, .plot-container {
             background: #000000 !important;
         }
         
-        /* Additional styling for plotly chart spacing */
+        /* Ensure each container holding charts has maximum height */
         [data-testid="element-container"] {
-            margin-top: -50px !important;
+            margin-top: 0 !important;
             padding-top: 0 !important;
+            width: 100% !important;
         }
+        
+        /* Make Plotly charts take maximum available space */
+        .plot-container, iframe {
+            width: 100% !important;
+            height: 85vh !important; /* Take most of the viewport height */
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        
+        /* Tab styling - with extra contrast for visibility */
+        [data-testid="stTabs"] {
+            background-color: rgba(30, 41, 59, 0.9) !important;
+            border-radius: 5px !important;
+            padding: 5px !important;
+            margin-bottom: 10px !important;
+            margin-top: 5px !important;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3) !important;
+            width: 100% !important;
+            border: 1px solid rgba(139, 233, 253, 0.2) !important;
+        }
+        
+        /* Active tab button styling */
+        [data-testid="stTabs"] button[aria-selected="true"] {
+            background-color: #483d8b !important;
+            color: white !important;
+            font-weight: bold !important;
+            border: none !important;
+            border-radius: 3px !important;
+            box-shadow: 0 0 5px rgba(72, 61, 139, 0.5) !important;
+        }
+        
+        /* Inactive tab button styling */
+        [data-testid="stTabs"] button[aria-selected="false"] {
+            color: #8be9fd !important;
+            background-color: rgba(15, 20, 30, 0.8) !important;
+            opacity: 0.8 !important;
+            border: none !important;
+            border-radius: 3px !important;
+        }
+        
+        /* For disabled tab effect - this will apply to non-clickable tabs */
+        [data-testid="stTabs"] button[aria-disabled="true"],
+        [data-testid="stTabs"] button[disabled] {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            color: #6c757d !important;
+        }
+        
+        /* Tab panel container - the content under each tab */
+        [data-testid="stTabs"] [data-testid="stTabContent"] {
+            background-color: transparent !important;
+            border: none !important;
+            padding: 0.5rem !important;
+            width: 100% !important;
+        }
+        
+        /* Make dataframes go full width */
+        [data-testid="stDataFrame"] {
+            width: 100% !important;
+        }
+        
+        /* Ensure all containers expand to full width */
+        div.stTabs > div {
+            width: 100% !important;
+        }
+
+        /* Fix iframe heights to match parent */
         iframe {
-            margin-top: -30px !important;
+            display: block !important;
+        }
+        
+        /* Force elements to take full width - using !important as Streamlit uses inline styles */
+        div, section, main {
+            max-width: 100% !important;
+        }
+        
+        /* Fix any containing blocks that might limit width */
+        .element-container, .stDataFrame > div,
+        div[data-testid="stDecoration"] {
+            max-width: 100% !important;
+            width: 100% !important;
         }
     </style>
+    """, unsafe_allow_html=True)
+    
+    # Add JavaScript to help resize the iframe and remove border effects
+    st.markdown("""
+    <script>
+        // Function to resize all iframes to fit full window
+        function resizeIFrames() {
+            const iframes = document.querySelectorAll('iframe');
+            const height = window.innerHeight;
+            const width = window.innerWidth;
+            
+            iframes.forEach(iframe => {
+                iframe.style.height = height + 'px';
+                iframe.style.width = width + 'px';
+                iframe.style.border = 'none';
+                iframe.style.margin = '0';
+                iframe.style.padding = '0';
+            });
+        }
+        
+        // Run on page load and window resize
+        window.addEventListener('load', resizeIFrames);
+        window.addEventListener('resize', resizeIFrames);
+    </script>
     """, unsafe_allow_html=True)
 
 def create_layout_containers():

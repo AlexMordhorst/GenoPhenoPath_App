@@ -292,14 +292,14 @@ def update_visualization(
         # Create a new figure with the updated data
         updated_fig = go.Figure(data=updated_data, layout=fig.layout)
         
-        # Set the figure height and hide the legend
+        # Set the figure size to be responsive and expand to full available space
         updated_fig.update_layout(
-            height=509,  # 95% of 536
-            width=637,   # 95% of 670
+            autosize=True,
             showlegend=False,
             paper_bgcolor="black",
             plot_bgcolor="black",
-            margin=dict(t=0, l=0, r=0, b=0)  # Remove all margins around the plot
+            margin=dict(t=0, l=0, r=0, b=0),  # Remove all margins around the plot
+            uirevision='constant'  # Keep camera position on updates
         )
         
         # Always hide ticks and axis labels
@@ -367,8 +367,18 @@ def update_visualization(
         # Clear the animation placeholder
         animation_placeholder.empty()
         
-        # Display the interactive 3D graph
-        st.plotly_chart(updated_fig, use_container_width=True)
+        # Display the interactive 3D graph with maximum size
+        st.plotly_chart(
+            updated_fig, 
+            use_container_width=True,
+            config={
+                'displayModeBar': True,
+                'displaylogo': False,
+                'responsive': True,
+                'scrollZoom': True
+            },
+            height=700  # Set a large fixed height for the chart
+        )
         
         # Add the explanation text below the plotly figure
         display_graph_description()

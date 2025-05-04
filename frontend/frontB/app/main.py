@@ -191,36 +191,46 @@ def create_landing_page():
         st.write(f"Selected genes ({len(selected_genes)}):")
         st.write(", ".join(selected_genes))
     
-    # Add a button to reset the ontology (clear knowledge graph)
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Maintenance")
-    if st.sidebar.button("Reset Knowledge Graph"):
-        with st.spinner("Resetting knowledge graph..."):
+    # Add a reset button at the bottom of the landing page
+    if st.button("Reset All"):
+        with st.spinner("Resetting application..."):
             # Clear the ontology
             clear_ontology()
-            st.success("Knowledge graph has been reset.")
+            st.success("Application has been reset.")
             
             # Also reset application state
             reset_application_state()
     
-    # Add explanation for the reset button
-    with st.sidebar.expander("What does Reset do?"):
-        st.write("""
-        The Reset button clears all entities from the knowledge graph. 
-        Use this if you experience issues with gene selection or visualization.
-        """)
-    
     return selected_genes
+
+def create_phenotype_list_page(phenotypes):
+    """
+    Create a page that displays a list of all phenotypes in the knowledge graph.
+    
+    Args:
+        phenotypes: List of phenotype names
+    """
+    st.title("GenoPhenoPath: Phenotypes")
+    
+    if not phenotypes or len(phenotypes) == 0:
+        st.info("No phenotypes available. Please add genes in the Gene Selection tab first.")
+        return
+    
+    st.write(f"Total phenotypes: {len(phenotypes)}")
+    
+    # Display phenotypes as a sortable dataframe
+    df = pd.DataFrame({"Phenotype": sorted(phenotypes)})
+    st.dataframe(df, use_container_width=True)
 
 def run_app():
     """
     Run the main GenoPhenoPath application.
     
-    This function orchestrates the entire application flow:
+    This function orchestrates the entire application flow using a tabbed interface:
     1. Configure page settings and styling
     2. Initialize session state
-    3. Show landing page or visualization based on state
-    4. Set up layout containers and visualization if needed
+    3. Set up the tab interface as the main navigation
+    4. Display appropriate content based on the selected tab
     
     Used in:
     - app.py: The main entry point for the Streamlit application
@@ -230,75 +240,158 @@ def run_app():
         configure_page_settings()
         apply_custom_css()
         
+        # Add HTML viewport meta tag to ensure proper scaling on all devices
+        st.markdown("""
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <style>
+                html, body {
+                    height: 100vh;
+                    width: 100vw;
+                    margin: 0;
+                    padding: 0;
+                    overflow: hidden;
+                }
+            </style>
+        </head>
+        """, unsafe_allow_html=True)
+        
         # Initialize session state
         initialize_graph_statistics()
         initialize_ui_state()
         
-        # Initialize session state for gene selection and app state
+        # Initialize session state for gene selection, visualization and phenotypes
         if 'selected_genes' not in st.session_state:
             st.session_state.selected_genes = []
-        if 'show_visualization' not in st.session_state:
-            st.session_state.show_visualization = False
+        if 'current_tab' not in st.session_state:
+            st.session_state.current_tab = "Gene Selection"
+        if 'graph_data' not in st.session_state:
+            st.session_state.graph_data = None
+        if 'has_generated_graph' not in st.session_state:
+            st.session_state.has_generated_graph = False
+            
+        # Create tabs
+        tab_titles = ["Gene Selection", "Knowledge Graph", "Phenotypes"]
         
-        # Landing page
-        if not st.session_state.show_visualization:
+        # Determine if other tabs should be enabled
+        has_genes = len(st.session_state.selected_genes) > 0
+        
+        # Create the tabs
+        genes_tab, graph_tab, phenotypes_tab = st.tabs(tab_titles)
+        
+        # Gene Selection Tab
+        with genes_tab:
             selected_genes = create_landing_page()
-            print(f"DEBUG - Selected genes from create_landing_page(): {selected_genes if selected_genes else 'None'}")
             
             # Store selected genes in session state immediately when they're returned
             if selected_genes:
                 st.session_state.selected_genes = selected_genes
-            
-            # Button to generate visualization
-            col1, col2 = st.columns([3, 1])
-            with col2:
-                if st.button("Visualize", type="primary", disabled=len(selected_genes) == 0):
-                    print(f"DEBUG - Selected genes defined in run_app: {st.session_state.selected_genes if st.session_state.selected_genes else 'None'}")
-                    st.session_state.show_visualization = True
-                    st.rerun()
-            with col1:
-                if len(selected_genes) == 0:
-                    st.info("Please select at least one gene to continue.")
-        
-        # Visualization page
-        else:
-            # Add a button to return to gene selection
-            if st.button("← Back to Gene Selection"):
-                # Clear the ontology to remove all gene entities
-                clear_ontology()
                 
-                # Use comprehensive reset function to clear all application state
-                reset_application_state()
-                st.rerun()
-            
-            # Set up layout containers
-            dropdown_container, animation_placeholder = create_layout_containers()
-            print(f"DEBUG - Selected genes in run_app: {st.session_state.selected_genes if st.session_state.selected_genes else 'None'}")
-            
-            # Load data with animation, passing selected genes
-            fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time, animation_frames = (
-                load_data_with_animation(animation_placeholder, st.session_state.selected_genes)
-            )
-            
-            # Create sidebar controls
-            controls = create_sidebar_controls()
-            
-            # Store control values in session state for tracking changes
-            for key, value in controls.items():
-                st.session_state[key] = value
-            
-            # Update and display visualization
-            updated_fig = update_visualization(
-                fig,
-                controls,
-                animation_placeholder,
-                animation_frames,
-                dropdown_container,
-                genes,
-                phenotypes,
-                diagnostics,
-                graph_stats
-            )
+                # Generate graph automatically if genes were selected and graph hasn't been generated yet
+                if not st.session_state.has_generated_graph:
+                    # Set up a placeholder for animation while generating graph
+                    animation_placeholder = st.empty()
+                    
+                    with st.spinner("Generating knowledge graph..."):
+                        # Load data with animation, passing selected genes
+                        graph_data = load_data_with_animation(animation_placeholder, selected_genes)
+                        st.session_state.graph_data = graph_data
+                        st.session_state.has_generated_graph = True
+                    
+                    st.success("Knowledge graph generated. You can now navigate to the Knowledge Graph and Phenotypes tabs.")
+                    st.rerun()  # Rerun to reflect the changes in tab state
+        
+        # Knowledge Graph Tab
+        with graph_tab:
+            if not has_genes:
+                st.info("Please select genes in the Gene Selection tab first.")
+            elif not st.session_state.has_generated_graph:
+                st.info("Please wait while the knowledge graph is being generated...")
+            else:
+                # Set up layout containers
+                dropdown_container, animation_placeholder = create_layout_containers()
+                
+                # Retrieve graph data from session state
+                (fig, genes, phenotypes, diagnostics, layout_3d, graph, 
+                 graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+                
+                # Create controls without using sidebar
+                controls_col1, controls_col2 = st.columns(2)
+                
+                with controls_col1:
+                    show_genes = st.checkbox("Show Genes", value=True)
+                    show_phenotypes = st.checkbox("Show Phenotypes", value=True)
+                    show_diagnostics = st.checkbox("Show Diagnostics", value=True)
+                
+                with controls_col2:
+                    show_gene_pheno_edges = st.checkbox("Show Gene-Phenotype Edges", value=True)
+                    show_pheno_diag_edges = st.checkbox("Show Phenotype-Diagnostic Edges", value=True)
+                
+                controls = {
+                    "show_genes": show_genes,
+                    "show_phenotypes": show_phenotypes, 
+                    "show_diagnostics": show_diagnostics,
+                    "show_gene_pheno_edges": show_gene_pheno_edges,
+                    "show_pheno_diag_edges": show_pheno_diag_edges
+                }
+                
+                # Store control values in session state for tracking changes
+                for key, value in controls.items():
+                    st.session_state[key] = value
+                
+                # Update and display visualization with full height
+                st.markdown("""
+                <style>
+                    /* Make the visualization container take maximum height */
+                    .graph-container {
+                        height: 80vh !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Create a container with specific class for styling
+                with st.container():
+                    # Update and display visualization
+                    updated_fig = update_visualization(
+                        fig,
+                        controls,
+                        animation_placeholder,
+                        animation_frames,
+                        dropdown_container,
+                        genes,
+                        phenotypes,
+                        diagnostics,
+                        graph_stats
+                    )
+                
+                # Button to regenerate graph with updated gene selection
+                if st.button("Regenerate Knowledge Graph"):
+                    # Clear the ontology to remove all gene entities
+                    clear_ontology()
+                    
+                    # Set up a placeholder for animation
+                    animation_placeholder = st.empty()
+                    
+                    with st.spinner("Regenerating knowledge graph..."):
+                        # Load data with animation, passing selected genes
+                        graph_data = load_data_with_animation(animation_placeholder, st.session_state.selected_genes)
+                        st.session_state.graph_data = graph_data
+                    
+                    st.success("Knowledge graph regenerated.")
+                    st.rerun()
+        
+        # Phenotypes Tab
+        with phenotypes_tab:
+            if not has_genes:
+                st.info("Please select genes in the Gene Selection tab first.")
+            elif not st.session_state.has_generated_graph:
+                st.info("Please wait while the knowledge graph is being generated...")
+            else:
+                # Extract phenotypes from the graph data
+                phenotypes = st.session_state.graph_data[2]  # Index 2 contains phenotypes
+                create_phenotype_list_page(phenotypes)
         
     except Exception as e:
         st.error(f"Error loading knowledge graph: {str(e)}")

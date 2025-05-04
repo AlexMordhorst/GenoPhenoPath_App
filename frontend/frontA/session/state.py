@@ -116,7 +116,17 @@ def reset_application_state():
     if 'selected_genes' in st.session_state:
         st.session_state.selected_genes = []
     
-    # Reset visualization state
+    # Reset tab-related states
+    if 'current_tab' in st.session_state:
+        st.session_state.current_tab = "Gene Selection"
+    
+    if 'has_generated_graph' in st.session_state:
+        st.session_state.has_generated_graph = False
+    
+    if 'graph_data' in st.session_state:
+        st.session_state.graph_data = None
+        
+    # Legacy state reset for backward compatibility
     if 'show_visualization' in st.session_state:
         st.session_state.show_visualization = False
     
