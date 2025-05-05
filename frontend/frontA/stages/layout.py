@@ -53,7 +53,7 @@ def apply_custom_css():
             overflow: hidden;
         }
 
-        /* The root app container itself */
+        /* The root app container itself - absolutely no margins */
         .stApp {
             background: #000000;
             position: fixed !important;
@@ -68,7 +68,19 @@ def apply_custom_css():
             overflow: hidden !important;
         }
         
-        /* Main content container */
+        /* Target first child of stApp to remove top margins */
+        .stApp > div {
+            margin-top: -20px !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Target streamlit app view container */
+        [data-testid="stAppViewContainer"] {
+            margin-top: -20px !important;
+            padding-top: 0 !important;
+        }
+        
+        /* Main content container - no padding */
         [data-testid="stAppViewBlockContainer"] {
             position: absolute !important;
             top: 0 !important;
@@ -95,13 +107,20 @@ def apply_custom_css():
         
         /* Ensure content doesn't have scrollbars unless needed */
         .main .block-container {
-            padding: 0.5rem !important;
+            padding: 0 !important;
         }
         
-        /* Remove Streamlit branding */
-        #MainMenu, header, footer, [data-testid="stToolbar"] {
+        /* Remove Streamlit branding and header completely */
+        #MainMenu, header, footer, [data-testid="stToolbar"], div[data-testid="stHeader"] {
             display: none !important;
             visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
         }
         
         /* Hide ALL hidden overflow that might create borders */
@@ -133,12 +152,13 @@ def apply_custom_css():
             box-sizing: border-box !important;
         }
         
-        /* Title styling */
+        /* Title styling - minimal margin */
         h1 {
             color: #8be9fd !important;
             font-family: 'Courier New', monospace !important;
             text-shadow: 0 0 10px rgba(139, 233, 253, 0.7);
-            margin-top: 0.5rem !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
         }
         
         /* Make text and labels more visible on dark background */
@@ -223,16 +243,18 @@ def apply_custom_css():
             margin-bottom: 0 !important;
         }
         
-        /* Tab styling - with extra contrast for visibility */
+        /* Tab styling - pulled up with more tabs */
         [data-testid="stTabs"] {
-            background-color: rgba(30, 41, 59, 0.9) !important;
+            background-color: transparent !important;
             border-radius: 5px !important;
-            padding: 5px !important;
-            margin-bottom: 10px !important;
-            margin-top: 5px !important;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3) !important;
+            padding: 5px 5px 2px 5px !important;
+            padding-top: 0 !important;
+            margin-bottom: 0 !important;
+            margin-top: -20px !important; /* Negative margin to pull up */
             width: 100% !important;
-            border: 1px solid rgba(139, 233, 253, 0.2) !important;
+            border: none !important;
+            position: relative !important;
+            top: -20px !important; /* Additional positioning to pull up */
         }
         
         /* Active tab button styling */
@@ -266,7 +288,8 @@ def apply_custom_css():
         [data-testid="stTabs"] [data-testid="stTabContent"] {
             background-color: transparent !important;
             border: none !important;
-            padding: 0.5rem !important;
+            padding: 0 !important;
+            margin-top: 0 !important;
             width: 100% !important;
         }
         
@@ -327,22 +350,16 @@ def create_layout_containers():
     """
     Create the main layout containers for the application.
     
-    This function creates containers for the:
-    - Stats dropdown
-    - Animation placeholder
+    Note: This function is kept for backward compatibility.
+    The dropdown container is no longer used, as statistics are now in their own tab.
     
     Returns:
-        Tuple of containers:
-        - dropdown_container: Container for statistics dropdown
-        - animation_placeholder: Placeholder for loading animation
+        Animation placeholder: Placeholder for loading animation
         
     Used in:
-    - frontend.frontB.app.main.run_app
+    - frontend.frontB.app.main.run_app (legacy)
     """
-    # Create a container for the dropdown
-    dropdown_container = st.container()
-    
     # Create a placeholder for the DNA animation
     animation_placeholder = st.empty()
     
-    return dropdown_container, animation_placeholder
+    return animation_placeholder

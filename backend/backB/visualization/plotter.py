@@ -150,12 +150,14 @@ def configure_layout(width: int = 637, height: int = 509) -> go.Layout:
     Used in:
     - backend.backB.visualization.plotter.create_visualization
     """
-    # Configure axis settings for the 3D plot (hide all axes)
+    # Configure axis settings for the 3D plot (completely remove all axes elements)
     axis = dict(showbackground=False,
                 showline=False,
                 zeroline=False,
                 showgrid=False,
                 showticklabels=False,
+                showaxeslabels=False,
+                visible=False,
                 title='')
     
     # Create a dark spacey layout for the 3D graph
@@ -171,22 +173,23 @@ def configure_layout(width: int = 637, height: int = 509) -> go.Layout:
         ),
         scene=dict(
             xaxis=dict(axis,
-                      gridcolor="#1a1a2e", 
-                      zerolinecolor="#1a1a2e"),
+                      gridcolor="rgba(0,0,0,0)", 
+                      zerolinecolor="rgba(0,0,0,0)"),
             yaxis=dict(axis,
-                      gridcolor="#1a1a2e", 
-                      zerolinecolor="#1a1a2e"),
+                      gridcolor="rgba(0,0,0,0)", 
+                      zerolinecolor="rgba(0,0,0,0)"),
             zaxis=dict(axis,
-                      gridcolor="#1a1a2e", 
-                      zerolinecolor="#1a1a2e"),
-            bgcolor="rgb(5, 10, 25)",  # Dark space background
+                      gridcolor="rgba(0,0,0,0)", 
+                      zerolinecolor="rgba(0,0,0,0)"),
+            bgcolor="#000000",  # Pure black to match website background
             # Add camera settings to increase zoom
             camera=dict(
                 eye=dict(x=0.90, y=0.90, z=0.90)  # Reduced eye distance for more zoom
-            )
+            ),
+            aspectmode='cube'  # Enforce equal scaling on all axes
         ),
-        paper_bgcolor="rgba(0,0,0,0)",  # Transparent paper bg to blend with app bg
-        plot_bgcolor="rgba(0,0,0,0)",   # Transparent plot bg
+        paper_bgcolor="#000000",  # Pure black paper bg to match website background
+        plot_bgcolor="#000000",   # Pure black plot bg
         margin=dict(t=32, l=0, r=0, b=0),  # 95% of 34
         hovermode='closest'
     )

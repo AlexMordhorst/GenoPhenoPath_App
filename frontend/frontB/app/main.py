@@ -208,7 +208,7 @@ def create_phenotype_list_page(phenotypes):
     Create a page that displays a list of all phenotypes in the knowledge graph.
     
     Args:
-        phenotypes: List of phenotype names
+        phenotypes: List of phenotype IDs
     """
     st.title("GenoPhenoPath: Phenotypes")
     
@@ -218,8 +218,26 @@ def create_phenotype_list_page(phenotypes):
     
     st.write(f"Total phenotypes: {len(phenotypes)}")
     
-    # Display phenotypes as a sortable dataframe
-    df = pd.DataFrame({"Phenotype": sorted(phenotypes)})
+    # Load unique phenotypes with names
+    try:
+        from backend.backA.data_processing.loader import load_unique_phenotypes
+        unique_phenotypes_df = load_unique_phenotypes()
+        
+        # Create a display DataFrame with both IDs and names
+        display_data = []
+        for phen_id in sorted(phenotypes):
+            name = "Unknown"
+            matches = unique_phenotypes_df[unique_phenotypes_df['hpo_id'] == phen_id]
+            if not matches.empty:
+                name = matches.iloc[0]['hpo_name']
+            display_data.append({"HPO ID": phen_id, "Phenotype Name": name})
+        
+        df = pd.DataFrame(display_data)
+    except Exception as e:
+        # Fallback to just showing the IDs if there's an issue with the enhanced display
+        print(f"Error loading phenotype names: {e}")
+        df = pd.DataFrame({"HPO ID": sorted(phenotypes)})
+    
     st.dataframe(df, use_container_width=True)
 
 def run_app():
@@ -240,7 +258,7 @@ def run_app():
         configure_page_settings()
         apply_custom_css()
         
-        # Add HTML viewport meta tag to ensure proper scaling on all devices
+        # Add HTML viewport meta tag to ensure proper scaling on all devices and remove ALL margins
         st.markdown("""
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -251,6 +269,47 @@ def run_app():
                     margin: 0;
                     padding: 0;
                     overflow: hidden;
+                }
+                
+                /* EXTREMELY aggressive removal of ALL top margins and padding */
+                .element-container, 
+                div[data-testid="block-container"], 
+                div[data-testid="stVerticalBlock"],
+                div.stTabs,
+                div.stTabs > div,
+                div.stTabs > div > div,
+                div.stTabs > div > div > div,
+                [data-testid="stDecoration"],
+                header,
+                section[data-testid="stHeader"],
+                div[data-testid="stToolbar"],
+                div.main,
+                div.main div,
+                .stMarkdown,
+                .stMarkdown div,
+                .stMarkdown div p,
+                .streamlit-container,
+                .streamlit-container div,
+                .streamlit-container div > div,
+                .stApp,
+                [data-testid="stAppViewContainer"],
+                [data-testid="stAppViewContainer"] > div {
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                }
+                
+                /* Specifically target the streamlit header which often adds space */
+                div[data-testid="stHeader"] {
+                    display: none !important;
+                    height: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    visibility: hidden !important;
+                }
+                
+                /* Move everything to the very top */
+                .stApp {
+                    margin-top: -10px !important;
                 }
             </style>
         </head>
@@ -271,13 +330,13 @@ def run_app():
             st.session_state.has_generated_graph = False
             
         # Create tabs
-        tab_titles = ["Gene Selection", "Knowledge Graph", "Phenotypes"]
+        tab_titles = ["Gene Selection", "Knowledge Graph", "Phenotypes", "Statistics"]
         
         # Determine if other tabs should be enabled
         has_genes = len(st.session_state.selected_genes) > 0
         
         # Create the tabs
-        genes_tab, graph_tab, phenotypes_tab = st.tabs(tab_titles)
+        genes_tab, graph_tab, phenotypes_tab, stats_tab = st.tabs(tab_titles)
         
         # Gene Selection Tab
         with genes_tab:
@@ -308,43 +367,43 @@ def run_app():
             elif not st.session_state.has_generated_graph:
                 st.info("Please wait while the knowledge graph is being generated...")
             else:
-                # Set up layout containers
-                dropdown_container, animation_placeholder = create_layout_containers()
+                # Create animation placeholder
+                animation_placeholder = st.empty()
                 
                 # Retrieve graph data from session state
                 (fig, genes, phenotypes, diagnostics, layout_3d, graph, 
                  graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
                 
-                # Create controls without using sidebar
-                controls_col1, controls_col2 = st.columns(2)
+                # Initialize controls with default values
+                if 'controls' not in st.session_state:
+                    # Default control values
+                    st.session_state.controls = {
+                        "show_genes": True,
+                        "show_phenotypes": True, 
+                        "show_diagnostics": True,
+                        "show_gene_pheno_edges": True,
+                        "show_pheno_diag_edges": True,
+                        "gene_size": 10,
+                        "phenotype_size": 3,
+                        "diagnostic_size": 8,
+                        "gene_opacity": 0.9,
+                        "phenotype_opacity": 0.2,
+                        "diagnostic_opacity": 0.7,
+                        "gene_pheno_opacity": 0.4,
+                        "pheno_diag_opacity": 0.3,
+                        "edge_limit": 1000,
+                        "search_term": ""
+                    }
                 
-                with controls_col1:
-                    show_genes = st.checkbox("Show Genes", value=True)
-                    show_phenotypes = st.checkbox("Show Phenotypes", value=True)
-                    show_diagnostics = st.checkbox("Show Diagnostics", value=True)
-                
-                with controls_col2:
-                    show_gene_pheno_edges = st.checkbox("Show Gene-Phenotype Edges", value=True)
-                    show_pheno_diag_edges = st.checkbox("Show Phenotype-Diagnostic Edges", value=True)
-                
-                controls = {
-                    "show_genes": show_genes,
-                    "show_phenotypes": show_phenotypes, 
-                    "show_diagnostics": show_diagnostics,
-                    "show_gene_pheno_edges": show_gene_pheno_edges,
-                    "show_pheno_diag_edges": show_pheno_diag_edges
-                }
-                
-                # Store control values in session state for tracking changes
-                for key, value in controls.items():
-                    st.session_state[key] = value
+                # Use the controls from session state
+                controls = st.session_state.controls
                 
                 # Update and display visualization with full height
                 st.markdown("""
                 <style>
                     /* Make the visualization container take maximum height */
                     .graph-container {
-                        height: 80vh !important;
+                        height: 104vh !important; /* Increased by factor of 1.3 (80vh * 1.3 = 104vh) */
                         margin: 0 !important;
                         padding: 0 !important;
                     }
@@ -359,7 +418,6 @@ def run_app():
                         controls,
                         animation_placeholder,
                         animation_frames,
-                        dropdown_container,
                         genes,
                         phenotypes,
                         diagnostics,
@@ -392,6 +450,97 @@ def run_app():
                 # Extract phenotypes from the graph data
                 phenotypes = st.session_state.graph_data[2]  # Index 2 contains phenotypes
                 create_phenotype_list_page(phenotypes)
+                
+        # Statistics Tab
+        with stats_tab:
+            if not has_genes:
+                st.info("Please select genes in the Gene Selection tab first.")
+            elif not st.session_state.has_generated_graph:
+                st.info("Please wait while the knowledge graph is being generated...")
+            else:
+                # Retrieve graph data from session state
+                (fig, genes, phenotypes, diagnostics, layout_3d, graph, 
+                 graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+                
+                st.title("Knowledge Graph Statistics")
+                
+                # Calculate statistics based on current control settings
+                from frontend.frontB.display.chart import calculate_visibility_stats
+                
+                visibility_stats = calculate_visibility_stats(
+                    st.session_state.controls, genes, phenotypes, diagnostics, graph_stats
+                )
+                
+                # Display the statistics in a nice layout
+                st.markdown("""
+                <style>
+                .stats-container {
+                    background-color: #000000;
+                    border-radius: 5px;
+                    border: 1px solid rgba(139, 233, 253, 0.2);
+                    padding: 20px;
+                    margin-bottom: 20px;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Node statistics
+                st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
+                st.subheader("Node Statistics")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Genes", visibility_stats["visible_genes"], 
+                             delta=f"{visibility_stats['visible_genes']}/{len(genes)}" 
+                             if visibility_stats["visible_genes"] < len(genes) else None)
+                with col2:
+                    st.metric("Phenotypes", visibility_stats["visible_phenotypes"],
+                             delta=f"{visibility_stats['visible_phenotypes']}/{len(phenotypes)}" 
+                             if visibility_stats["visible_phenotypes"] < len(phenotypes) else None)
+                with col3:
+                    st.metric("Diagnostic Measures", visibility_stats["visible_diagnostics"],
+                             delta=f"{visibility_stats['visible_diagnostics']}/{len(diagnostics)}" 
+                             if visibility_stats["visible_diagnostics"] < len(diagnostics) else None)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Displayed Nodes", visibility_stats["displayed_nodes"])
+                with col2:
+                    st.metric("Total Available Nodes", len(genes) + len(phenotypes) + len(diagnostics))
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Edge statistics
+                st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
+                st.subheader("Edge Statistics")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Gene-Phenotype Edges", visibility_stats["visible_gene_pheno_edges"])
+                with col2:
+                    st.metric("Phenotype-Diagnostic Edges", visibility_stats["visible_pheno_diag_edges"])
+                with col3:
+                    st.metric("Total Edges", visibility_stats["displayed_edges"])
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Gene-Phenotype Density", f"{visibility_stats['visible_gene_pheno_edges'] / (visibility_stats['visible_genes'] * visibility_stats['visible_phenotypes']):.4f}" if visibility_stats['visible_genes'] > 0 and visibility_stats['visible_phenotypes'] > 0 else "N/A")
+                with col2:
+                    st.metric("Phenotype-Diagnostic Density", f"{visibility_stats['visible_pheno_diag_edges'] / (visibility_stats['visible_phenotypes'] * visibility_stats['visible_diagnostics']):.4f}" if visibility_stats['visible_phenotypes'] > 0 and visibility_stats['visible_diagnostics'] > 0 else "N/A")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Performance statistics
+                st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
+                st.subheader("Performance Statistics")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Graph Generation Time", f"{elapsed_time:.2f} seconds")
+                with col2:
+                    st.metric("Nodes per Second", f"{(len(genes) + len(phenotypes) + len(diagnostics)) / elapsed_time:.2f}")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
         
     except Exception as e:
         st.error(f"Error loading knowledge graph: {str(e)}")

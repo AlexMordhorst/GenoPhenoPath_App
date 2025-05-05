@@ -37,11 +37,11 @@ def load_unique_phenotypes(file_path: str = "./Data/unique_phenotypes.csv") -> p
         file_path: Path to the CSV file containing unique phenotypes
         
     Returns:
-        DataFrame with unique phenotypes
+        DataFrame with unique phenotypes and their names
     """
     if os.path.exists(file_path):
         return pd.read_csv(file_path)
-    return pd.DataFrame(columns=["hpo_id"])
+    return pd.DataFrame(columns=["hpo_id", "hpo_name"])
 
 def load_unique_diagnostics(file_path: str = "./Data/unique_diagnostics.csv") -> pd.DataFrame:
     """

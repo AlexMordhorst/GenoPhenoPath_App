@@ -230,10 +230,13 @@ def display_statistics_dropdown(
 def display_graph_description():
     """
     Display a description of the graph visualization below the chart.
+    This function is kept for backward compatibility but is no longer used directly.
+    The info box is now placed using a placeholder for better positioning.
     
     Used in:
-    - frontend.frontB.display.chart.update_visualization
+    - frontend.frontB.display.chart.update_visualization (legacy)
     """
+    # Note: This function is kept for backwards compatibility but is no longer used directly
     st.markdown("""
     <div style='background-color: #000000; padding: 15px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2);'>
         This visualization maps the relationships between:
@@ -250,7 +253,6 @@ def update_visualization(
     controls: Dict[str, Any],
     animation_placeholder: Any,
     animation_frames: List[str],
-    dropdown_container: Any,
     genes: List[str],
     phenotypes: List[str],
     diagnostics: List[str],
@@ -264,7 +266,6 @@ def update_visualization(
         controls: Dictionary with control values
         animation_placeholder: Streamlit container for the animation
         animation_frames: List of animation frame strings
-        dropdown_container: Streamlit container for the statistics dropdown
         genes: List of gene names
         phenotypes: List of phenotype IDs
         diagnostics: List of diagnostic labels
@@ -296,47 +297,58 @@ def update_visualization(
         updated_fig.update_layout(
             autosize=True,
             showlegend=False,
-            paper_bgcolor="black",
-            plot_bgcolor="black",
+            paper_bgcolor="#000000",
+            plot_bgcolor="#000000",
             margin=dict(t=0, l=0, r=0, b=0),  # Remove all margins around the plot
             uirevision='constant'  # Keep camera position on updates
         )
         
-        # Always hide ticks and axis labels
-        show_ticks = False
-        
+        # Completely remove all axis elements and grid
         # Update scene settings based on visibility
         updated_fig.update_layout(
             scene=dict(
                 xaxis=dict(
-                    showticklabels=show_ticks,
-                    showspikes=show_ticks,
-                    showgrid=show_ticks,
-                    showline=show_ticks,
-                    zeroline=show_ticks,
-                    backgroundcolor="black"
+                    showticklabels=False,
+                    showspikes=False,
+                    showgrid=False,
+                    showline=False,
+                    zeroline=False,
+                    showaxeslabels=False,
+                    visible=False,
+                    backgroundcolor="#000000",
+                    gridcolor="rgba(0,0,0,0)",
+                    zerolinecolor="rgba(0,0,0,0)"
                 ),
                 yaxis=dict(
-                    showticklabels=show_ticks,
-                    showspikes=show_ticks,
-                    showgrid=show_ticks,
-                    showline=show_ticks,
-                    zeroline=show_ticks,
-                    backgroundcolor="black"
+                    showticklabels=False,
+                    showspikes=False,
+                    showgrid=False,
+                    showline=False,
+                    zeroline=False,
+                    showaxeslabels=False,
+                    visible=False,
+                    backgroundcolor="#000000",
+                    gridcolor="rgba(0,0,0,0)",
+                    zerolinecolor="rgba(0,0,0,0)"
                 ),
                 zaxis=dict(
-                    showticklabels=show_ticks,
-                    showspikes=show_ticks,
-                    showgrid=show_ticks,
-                    showline=show_ticks,
-                    zeroline=show_ticks,
-                    backgroundcolor="black"
+                    showticklabels=False,
+                    showspikes=False,
+                    showgrid=False,
+                    showline=False,
+                    zeroline=False,
+                    showaxeslabels=False,
+                    visible=False,
+                    backgroundcolor="#000000",
+                    gridcolor="rgba(0,0,0,0)",
+                    zerolinecolor="rgba(0,0,0,0)"
                 ),
-                bgcolor="black",
+                bgcolor="#000000",  # Pure black to match website background
                 # Increase zoom
                 camera=dict(
                     eye=dict(x=0.90, y=0.90, z=0.90)  # Reducing eye distance for more zoom
-                )
+                ),
+                aspectmode='cube'  # Enforce equal scaling on all axes
             )
         )
         
@@ -367,6 +379,21 @@ def update_visualization(
         # Clear the animation placeholder
         animation_placeholder.empty()
         
+        # Create a container for the 3D graph with zero margins
+        st.markdown("""
+        <style>
+        /* Zero margins between plot and info box */
+        .js-plotly-plot, .plot-container, .svg-container {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Create placeholders for controls and info box
+        controls_placeholder = st.empty()
+        info_box_placeholder = st.empty()
+        
         # Display the interactive 3D graph with maximum size
         st.plotly_chart(
             updated_fig, 
@@ -377,20 +404,79 @@ def update_visualization(
                 'responsive': True,
                 'scrollZoom': True
             },
-            height=700  # Set a large fixed height for the chart
+            height=910  # Increased height by factor of 1.3 (700 * 1.3 = 910)
         )
         
-        # Add the explanation text below the plotly figure
-        display_graph_description()
+        # Add controls between the graph and info box
+        with controls_placeholder.container():
+            st.markdown("<style>.control-container { background-color: #000000; padding: 10px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2); margin-bottom: 10px; }</style>", unsafe_allow_html=True)
+            with st.container():
+                st.markdown('<div class="control-container">', unsafe_allow_html=True)
+                
+                # Create two columns for visibility controls
+                visibility_col1, visibility_col2 = st.columns(2)
+                
+                # Node visibility controls in first column
+                with visibility_col1:
+                    st.write("**Show Nodes:**")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.session_state.controls["show_genes"] = st.checkbox("Genes", value=st.session_state.controls["show_genes"])
+                    with col2:
+                        st.session_state.controls["show_phenotypes"] = st.checkbox("Phenotypes", value=st.session_state.controls["show_phenotypes"])
+                    with col3:
+                        st.session_state.controls["show_diagnostics"] = st.checkbox("Diagnostics", value=st.session_state.controls["show_diagnostics"])
+                
+                # Edge visibility controls in second column
+                with visibility_col2:
+                    st.write("**Show Connections:**")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.session_state.controls["show_gene_pheno_edges"] = st.checkbox("Gene-Phenotype", value=st.session_state.controls["show_gene_pheno_edges"])
+                    with col2:
+                        st.session_state.controls["show_pheno_diag_edges"] = st.checkbox("Phenotype-Diagnostic", value=st.session_state.controls["show_pheno_diag_edges"])
+                
+                # Create two columns for opacity controls
+                opacity_col1, opacity_col2 = st.columns(2)
+                
+                # Node opacity controls
+                with opacity_col1:
+                    st.write("**Node Opacity:**")
+                    st.session_state.controls["gene_opacity"] = st.slider("Gene Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["gene_opacity"], step=0.1)
+                    st.session_state.controls["phenotype_opacity"] = st.slider("Phenotype Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["phenotype_opacity"], step=0.1)
+                    st.session_state.controls["diagnostic_opacity"] = st.slider("Diagnostic Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["diagnostic_opacity"], step=0.1)
+                
+                # Edge opacity controls
+                with opacity_col2:
+                    st.write("**Connection Opacity:**")
+                    st.session_state.controls["gene_pheno_opacity"] = st.slider("Gene-Phenotype Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["gene_pheno_opacity"], step=0.1)
+                    st.session_state.controls["pheno_diag_opacity"] = st.slider("Phenotype-Diagnostic Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["pheno_diag_opacity"], step=0.1)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
         
-        # Display statistics in the dropdown
-        display_statistics_dropdown(
-            dropdown_container,
-            visibility_stats,
-            genes,
-            phenotypes,
-            diagnostics
-        )
+        # Add the explanation text below the controls using the placeholder
+        info_box_placeholder.markdown("""
+        <style>
+        /* Info box styling */
+        .info-box {
+            background-color: #000000; 
+            padding: 15px; 
+            border-radius: 5px; 
+            border: 1px solid rgba(139, 233, 253, 0.2);
+            margin-top: 10px;
+        }
+        </style>
+        <div class="info-box">
+            This visualization maps the relationships between:
+            <ul>
+                <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
+                <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
+                <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Statistics are now displayed in their own tab
         
         return updated_fig
         
@@ -399,8 +485,17 @@ def update_visualization(
         # Try to show the original figure as fallback
         try:
             st.plotly_chart(fig, use_container_width=True)
-            display_graph_description()
-        except:
-            st.error("Unable to display graph visualization. The dataset may be too large.")
+            st.markdown("""
+            <div style='background-color: #000000; padding: 15px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2);'>
+                This visualization maps the relationships between:
+                <ul>
+                    <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
+                    <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
+                    <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        except Exception as fallback_error:
+            st.error(f"Unable to display graph visualization: {str(fallback_error)}. The dataset may be too large.")
         
         return fig
