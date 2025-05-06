@@ -21,7 +21,7 @@ def configure_page_settings():
     """
     # Set page config to make the app wider with dark mode
     st.set_page_config(
-        page_title="GenoPhenoPath 3D Knowledge Graph",
+        page_title="GenePath",
         page_icon="🧬",
         layout="wide",
         initial_sidebar_state="collapsed",  # Ensure sidebar is hidden
@@ -152,13 +152,19 @@ def apply_custom_css():
             box-sizing: border-box !important;
         }
         
-        /* Title styling - minimal margin */
-        h1 {
-            color: #8be9fd !important;
-            font-family: 'Courier New', monospace !important;
-            text-shadow: 0 0 10px rgba(139, 233, 253, 0.7);
+        /* Title styling - minimal margin with standard white font */
+        h1, h2, h3, h4, h5, h6, .stHeading, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+            color: #ffffff !important;
+            font-family: inherit !important;
             margin-top: 0 !important;
             padding-top: 0 !important;
+        }
+        
+        /* Subheader styling */
+        .stSubheader, h3, .css-10trblm p {
+            color: #ffffff !important;
+            font-family: inherit !important;
+            text-shadow: none !important;
         }
         
         /* Make text and labels more visible on dark background */

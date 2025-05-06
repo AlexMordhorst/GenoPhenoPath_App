@@ -118,24 +118,25 @@ def check_controls_changed() -> bool:
     Used in:
     - frontend.frontB.display.chart.update_visualization
     """
-    current_settings = {
-        "gene_state": st.session_state.get("show_genes", True),
-        "phenotype_state": st.session_state.get("show_phenotypes", True),
-        "diagnostic_state": st.session_state.get("show_diagnostics", True),
-        "gene_pheno_edges_state": st.session_state.get("show_gene_pheno_edges", True),
-        "pheno_diag_edges_state": st.session_state.get("show_pheno_diag_edges", True)
-    }
+    # Skip check if this is the first time we're running
+    if 'last_controls' not in st.session_state:
+        st.session_state.last_controls = {}
+        # First run, so consider it changed
+        return True
     
-    previous_settings = {
-        "gene_state": st.session_state.get("last_gene_state", True),
-        "phenotype_state": st.session_state.get("last_phenotype_state", True),
-        "diagnostic_state": st.session_state.get("last_diagnostic_state", True),
-        "gene_pheno_edges_state": st.session_state.get("last_gene_pheno_edges_state", True),
-        "pheno_diag_edges_state": st.session_state.get("last_pheno_diag_edges_state", True)
-    }
+    # Get current controls
+    current_controls = st.session_state.controls
     
-    # Check if any setting has changed
-    return any(current_settings[key] != previous_settings[key] for key in current_settings.keys())
+    # Get last saved controls
+    last_controls = st.session_state.last_controls
+    
+    # Check if any control has changed between the current and last state
+    for key in current_controls:
+        if key not in last_controls or current_controls[key] != last_controls[key]:
+            return True
+    
+    # No changes detected
+    return False
 
 def update_control_state():
     """
@@ -147,9 +148,5 @@ def update_control_state():
     Used in:
     - frontend.frontB.display.chart.update_visualization
     """
-    # Update session state with current settings
-    st.session_state.last_gene_state = st.session_state.get("show_genes", True)
-    st.session_state.last_phenotype_state = st.session_state.get("show_phenotypes", True)
-    st.session_state.last_diagnostic_state = st.session_state.get("show_diagnostics", True)
-    st.session_state.last_gene_pheno_edges_state = st.session_state.get("show_gene_pheno_edges", True)
-    st.session_state.last_pheno_diag_edges_state = st.session_state.get("show_pheno_diag_edges", True)
+    # Make a deep copy of the current controls
+    st.session_state.last_controls = dict(st.session_state.controls)

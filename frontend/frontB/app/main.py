@@ -115,8 +115,8 @@ def create_landing_page():
     Returns:
         List of selected gene symbols
     """
-    st.title("GenoPhenoPath: Gene Selection")
-    st.write("Select genes to include in the knowledge graph visualization.")
+    
+    st.write("Select genes to include in the knowledge graph.")
     
     # Load unique genes for validation
     unique_genes_df = load_unique_genes()
@@ -219,7 +219,7 @@ def create_phenotype_list_page(phenotypes):
     Args:
         phenotypes: List of phenotype IDs
     """
-    st.title("GenoPhenoPath: Phenotypes")
+    
     
     if not phenotypes or len(phenotypes) == 0:
         st.info("No phenotypes available. Please add genes in the Gene Selection tab first.")
@@ -413,46 +413,17 @@ def run_app():
                 # Use the controls from session state
                 controls = st.session_state.controls
                 
-                # Update and display visualization with full height
-                st.markdown("""
-                <style>
-                    /* Make the visualization container take maximum height */
-                    .graph-container {
-                        height: 104vh !important; /* Increased by factor of 1.3 (80vh * 1.3 = 104vh) */
-                        margin: 0 !important;
-                        padding: 0 !important;
-                    }
-                </style>
-                """, unsafe_allow_html=True)
-                
-                # Create a container with specific class for styling
-                with st.container():
-                    # Update and display visualization
-                    updated_fig = update_visualization(
-                        fig,
-                        controls,
-                        animation_placeholder,
-                        animation_frames,
-                        genes,
-                        phenotypes,
-                        diagnostics,
-                        graph_stats
-                    )
-                
-                # Button to regenerate graph with updated gene selection
-                if st.button("Regenerate Knowledge Graph"):
-                    # Clear the ontology to remove all gene entities
-                    clear_ontology()
-                    
-                    # The placeholder is no longer used for animation but kept for API compatibility
-                    animation_placeholder = st.empty()
-                    
-                    # Load data, passing selected genes
-                    graph_data = load_data_with_animation(animation_placeholder, st.session_state.selected_genes)
-                    st.session_state.graph_data = graph_data
-                    
-                    st.success("Knowledge graph regenerated.")
-                    # No rerun needed here - it will refresh naturally when the button is clicked
+                # Display visualization directly at the top level with full height
+                updated_fig = update_visualization(
+                    fig,
+                    controls,
+                    animation_placeholder,
+                    animation_frames,
+                    genes,
+                    phenotypes,
+                    diagnostics,
+                    graph_stats
+                )
         
         # Phenotypes Tab
         with phenotypes_tab:
@@ -476,7 +447,7 @@ def run_app():
                 (fig, genes, phenotypes, diagnostics, layout_3d, graph, 
                  graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
                 
-                st.title("Knowledge Graph Statistics")
+                
                 
                 # Calculate statistics based on current control settings
                 from frontend.frontB.display.chart import calculate_visibility_stats
@@ -485,21 +456,10 @@ def run_app():
                     st.session_state.controls, genes, phenotypes, diagnostics, graph_stats
                 )
                 
-                # Display the statistics in a nice layout
-                st.markdown("""
-                <style>
-                .stats-container {
-                    background-color: #000000;
-                    border-radius: 5px;
-                    border: 1px solid rgba(139, 233, 253, 0.2);
-                    padding: 20px;
-                    margin-bottom: 20px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
+                # Display the statistics in sections separated by horizontal rules
                 
                 # Node statistics
-                st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
+                
                 st.subheader("Node Statistics")
                 
                 col1, col2, col3 = st.columns(3)
@@ -522,10 +482,10 @@ def run_app():
                 with col2:
                     st.metric("Total Available Nodes", len(genes) + len(phenotypes) + len(diagnostics))
                 
-                st.markdown("</div>", unsafe_allow_html=True)
+                # Add a horizontal rule to separate sections
+                st.markdown("<hr>", unsafe_allow_html=True)
                 
                 # Edge statistics
-                st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
                 st.subheader("Edge Statistics")
                 
                 col1, col2, col3 = st.columns(3)
@@ -542,10 +502,10 @@ def run_app():
                 with col2:
                     st.metric("Phenotype-Diagnostic Density", f"{visibility_stats['visible_pheno_diag_edges'] / (visibility_stats['visible_phenotypes'] * visibility_stats['visible_diagnostics']):.4f}" if visibility_stats['visible_phenotypes'] > 0 and visibility_stats['visible_diagnostics'] > 0 else "N/A")
                 
-                st.markdown("</div>", unsafe_allow_html=True)
+                # Add a horizontal rule to separate sections
+                st.markdown("<hr>", unsafe_allow_html=True)
                 
                 # Performance statistics
-                st.markdown("<div class='stats-container'>", unsafe_allow_html=True)
                 st.subheader("Performance Statistics")
                 
                 col1, col2 = st.columns(2)
@@ -553,8 +513,7 @@ def run_app():
                     st.metric("Graph Generation Time", f"{elapsed_time:.2f} seconds")
                 with col2:
                     st.metric("Nodes per Second", f"{(len(genes) + len(phenotypes) + len(diagnostics)) / elapsed_time:.2f}")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
+                # End of statistics sections
         
     except Exception as e:
         st.error(f"Error loading knowledge graph: {str(e)}")

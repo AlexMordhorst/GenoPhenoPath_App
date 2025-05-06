@@ -11,12 +11,55 @@ Functions in this module are used in:
 import streamlit as st
 import plotly.graph_objects as go
 import time
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Callable
 
-from frontend.frontA.animations.dna_helix import display_dna_animation
 from frontend.frontA.session.state import update_graph_statistics
-from frontend.frontB.interactions.controls import check_controls_changed, update_control_state
 from frontend.frontB.interactions.search import handle_search
+
+# Helper functions to make controls more responsive
+def synchronize_control_to_state(control_name: str):
+    """Callback function that syncs control widget value to session state"""
+    if 'controls' in st.session_state:
+        if f"cb_{control_name}" in st.session_state:
+            # Update from checkbox
+            st.session_state.controls[control_name] = st.session_state[f"cb_{control_name}"]
+            # Set a flag to indicate the need for a rerun
+            st.session_state.need_rerun = True
+        elif f"sl_{control_name}" in st.session_state:
+            # Update from slider
+            st.session_state.controls[control_name] = st.session_state[f"sl_{control_name}"]
+            # Set a flag to indicate the need for a rerun
+            st.session_state.need_rerun = True
+
+def create_checkbox(label: str, control_name: str, col=None):
+    """Create a checkbox with automatic state management"""
+    container = col if col else st
+    current_value = st.session_state.controls.get(control_name, True)
+    
+    return container.checkbox(
+        label,
+        value=current_value,
+        key=f"cb_{control_name}",
+        on_change=synchronize_control_to_state,
+        args=(control_name,)
+    )
+    
+def create_slider(label: str, control_name: str, min_val: float, max_val: float, 
+                  step: float, col=None):
+    """Create a slider with automatic state management"""
+    container = col if col else st
+    current_value = st.session_state.controls.get(control_name, (min_val + max_val) / 2)
+    
+    return container.slider(
+        label,
+        min_value=min_val,
+        max_value=max_val,
+        value=current_value,
+        step=step,
+        key=f"sl_{control_name}",
+        on_change=synchronize_control_to_state,
+        args=(control_name,)
+    )
 
 def update_figure_data(
     fig_data: List[go.Scatter3d], 
@@ -269,7 +312,14 @@ def update_visualization(
         
     Used in:
     - frontend.frontB.app.main.run_app
+    
+    Note: 
+    This function now uses a flag-based approach to handle control changes
+    without using st.rerun() inside callbacks.
     """
+    # Initialize the rerun flag if it doesn't exist
+    if 'need_rerun' not in st.session_state:
+        st.session_state.need_rerun = False
     try:
         # Handle search
         matching_nodes = handle_search(
@@ -361,110 +411,134 @@ def update_visualization(
             graph_stats
         )
         
-        # Check if visualization settings changed
-        if check_controls_changed():
-            # Update stored control state (animation has been removed)
-            update_control_state()
-        
         # Clear the placeholder (no longer used for animation)
         animation_placeholder.empty()
         
-        # Create a container for the 3D graph with zero margins
+        # Check if we need to rerun based on control changes
+        if st.session_state.need_rerun:
+            # Reset the flag
+            st.session_state.need_rerun = False
+            # Trigger the rerun from here (outside of any callback)
+            st.rerun()
+        
+        # Apply targeted CSS to fix the canvas/container height mismatch
         st.markdown("""
         <style>
-        /* Zero margins between plot and info box */
-        .js-plotly-plot, .plot-container, .svg-container {
-            margin-bottom: 0 !important;
+        /* Target the specific Plotly container-canvas gap */
+        .js-plotly-plot, .plot-container.plotly {
+            height: auto !important;
+        }
+        
+        /* Force the main SVG to be the same height as the canvas */
+        .main-svg {
+            height: auto !important;
+        }
+        
+        /* Force the container not to add extra space */
+        .svg-container {
             padding-bottom: 0 !important;
+        }
+        
+        /* Target the modebar to not create extra space */
+        .modebar-container {
+            transform: translateY(0) !important;
+            height: 0 !important;
+        }
+        
+        /* Fix plot dimensions and reduce its height */
+        .plot-container {
+            height: auto !important;
+            max-height: none !important;
+            min-height: 0 !important;
+        }
+        
+        /* Place description immediately after the canvas */
+        .js-plotly-plot + div {
+            margin-top: -184px !important; /* Exactly the gap size you found */
+        }
+        
+        /* Make sure description is visible above the gap */
+        .legend-box {
+            position: relative;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 1000;
+            margin-top: 0;
+            padding: 10px;
+            border-radius: 5px;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        # Create placeholders for controls and info box
-        controls_placeholder = st.empty()
-        info_box_placeholder = st.empty()
+        # CORE APPROACH: Use st.columns to force vertical stacking without spacing
+        col1 = st.container()
         
-        # Display the interactive 3D graph with maximum size
-        st.plotly_chart(
-            updated_fig, 
-            use_container_width=True,
-            config={
-                'displayModeBar': True,
-                'displaylogo': False,
-                'responsive': True,
-                'scrollZoom': True
-            },
-            height=910  # Increased height by factor of 1.3 (700 * 1.3 = 910)
-        )
+        # 1. Visualization in the first slot
+        with col1:
+            # Display the plot with minimal height
+            st.plotly_chart(
+                updated_fig, 
+                use_container_width=True,
+                config={
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'responsive': True,
+                    'scrollZoom': True
+                },
+                height=650  # Further reduced height
+            )
         
-        # Add controls between the graph and info box
-        with controls_placeholder.container():
-            st.markdown("<style>.control-container { background-color: #000000; padding: 10px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2); margin-bottom: 10px; }</style>", unsafe_allow_html=True)
-            with st.container():
-                st.markdown('<div class="control-container">', unsafe_allow_html=True)
-                
-                # Create two columns for visibility controls
-                visibility_col1, visibility_col2 = st.columns(2)
-                
-                # Node visibility controls in first column
-                with visibility_col1:
-                    st.write("**Show Nodes:**")
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.session_state.controls["show_genes"] = st.checkbox("Genes", value=st.session_state.controls["show_genes"])
-                    with col2:
-                        st.session_state.controls["show_phenotypes"] = st.checkbox("Phenotypes", value=st.session_state.controls["show_phenotypes"])
-                    with col3:
-                        st.session_state.controls["show_diagnostics"] = st.checkbox("Diagnostics", value=st.session_state.controls["show_diagnostics"])
-                
-                # Edge visibility controls in second column
-                with visibility_col2:
-                    st.write("**Show Connections:**")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.session_state.controls["show_gene_pheno_edges"] = st.checkbox("Gene-Phenotype", value=st.session_state.controls["show_gene_pheno_edges"])
-                    with col2:
-                        st.session_state.controls["show_pheno_diag_edges"] = st.checkbox("Phenotype-Diagnostic", value=st.session_state.controls["show_pheno_diag_edges"])
-                
-                # Create two columns for opacity controls
-                opacity_col1, opacity_col2 = st.columns(2)
-                
-                # Node opacity controls
-                with opacity_col1:
-                    st.write("**Node Opacity:**")
-                    st.session_state.controls["gene_opacity"] = st.slider("Gene Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["gene_opacity"], step=0.1)
-                    st.session_state.controls["phenotype_opacity"] = st.slider("Phenotype Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["phenotype_opacity"], step=0.1)
-                    st.session_state.controls["diagnostic_opacity"] = st.slider("Diagnostic Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["diagnostic_opacity"], step=0.1)
-                
-                # Edge opacity controls
-                with opacity_col2:
-                    st.write("**Connection Opacity:**")
-                    st.session_state.controls["gene_pheno_opacity"] = st.slider("Gene-Phenotype Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["gene_pheno_opacity"], step=0.1)
-                    st.session_state.controls["pheno_diag_opacity"] = st.slider("Phenotype-Diagnostic Opacity", min_value=0.1, max_value=1.0, value=st.session_state.controls["pheno_diag_opacity"], step=0.1)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Add the explanation text below the controls using the placeholder
-        info_box_placeholder.markdown("""
-        <style>
-        /* Info box styling */
-        .info-box {
-            background-color: #000000; 
-            padding: 15px; 
-            border-radius: 5px; 
-            border: 1px solid rgba(139, 233, 253, 0.2);
-            margin-top: 10px;
-        }
-        </style>
-        <div class="info-box">
-            This visualization maps the relationships between:
-            <ul>
+        # 2. Add the legend that will overlap with the gap between canvas and container
+        st.markdown("""
+        <div class="legend-box" style="margin-top: -184px;">
+            <span>This visualization maps the relationships between:</span>
+            <ul style="margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; list-style-position: inside;">
                 <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
                 <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
                 <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
+        
+        # 3. Add controls header with minimal spacing
+        st.markdown("<hr style='margin: 5px 0; border-color: #333;'><h4 style='margin: 5px 0;'>Controls</h4>", unsafe_allow_html=True)
+        
+        with st.container():
+            # Create two columns for visibility controls
+            visibility_col1, visibility_col2 = st.columns(2)
+            
+            # Node visibility controls in first column
+            with visibility_col1:
+                st.markdown('<p style="margin: 0; padding: 0;"><b>Show Nodes:</b></p>', unsafe_allow_html=True)
+                col1, col2, col3 = st.columns(3)
+                create_checkbox("Genes", "show_genes", col1)
+                create_checkbox("Phenotypes", "show_phenotypes", col2)
+                create_checkbox("Diagnostics", "show_diagnostics", col3)
+            
+            # Edge visibility controls in second column
+            with visibility_col2:
+                st.markdown('<p style="margin: 0; padding: 0;"><b>Show Connections:</b></p>', unsafe_allow_html=True)
+                col1, col2 = st.columns(2)
+                create_checkbox("Gene-Phenotype", "show_gene_pheno_edges", col1)
+                create_checkbox("Phenotype-Diagnostic", "show_pheno_diag_edges", col2)
+                
+            # Add a small spacer
+            st.markdown('<div style="height: 5px;"></div>', unsafe_allow_html=True)
+            
+            # Create two columns for opacity controls
+            opacity_col1, opacity_col2 = st.columns(2)
+            
+            # Node opacity controls
+            with opacity_col1:
+                st.markdown('<p style="margin: 0; padding: 0;"><b>Node Opacity:</b></p>', unsafe_allow_html=True)
+                create_slider("Gene Opacity", "gene_opacity", 0.1, 1.0, 0.1, opacity_col1)
+                create_slider("Phenotype Opacity", "phenotype_opacity", 0.1, 1.0, 0.1, opacity_col1)
+                create_slider("Diagnostic Opacity", "diagnostic_opacity", 0.1, 1.0, 0.1, opacity_col1)
+            
+            # Edge opacity controls
+            with opacity_col2:
+                st.markdown('<p style="margin: 0; padding: 0;"><b>Connection Opacity:</b></p>', unsafe_allow_html=True)
+                create_slider("Gene-Phenotype Opacity", "gene_pheno_opacity", 0.1, 1.0, 0.1, opacity_col2)
+                create_slider("Phenotype-Diagnostic Opacity", "pheno_diag_opacity", 0.1, 1.0, 0.1, opacity_col2)
         
         # Statistics are now displayed in their own tab
         
@@ -476,14 +550,12 @@ def update_visualization(
         try:
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("""
-            <div style='background-color: #000000; padding: 15px; border-radius: 5px; border: 1px solid rgba(139, 233, 253, 0.2);'>
                 This visualization maps the relationships between:
                 <ul>
                     <li><span style='color: #8be9fd; font-weight: bold;'>Genes</span> (blue nodes in the inner sphere)</li>
                     <li><span style='color: #ffb86c; font-weight: bold;'>Phenotypes</span> (orange nodes in the middle sphere)</li>
                     <li><span style='color: #ff79c6; font-weight: bold;'>Diagnostic measures</span> (magenta nodes in the outer sphere)</li>
                 </ul>
-            </div>
             """, unsafe_allow_html=True)
         except Exception as fallback_error:
             st.error(f"Unable to display graph visualization: {str(fallback_error)}. The dataset may be too large.")
