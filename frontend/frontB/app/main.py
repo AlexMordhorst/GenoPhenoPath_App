@@ -133,8 +133,8 @@ def create_landing_page():
     """
     Create the landing page for gene selection.
     
-    This function creates the UI for users to select genes either by manual input
-    or random selection.
+    This function creates the UI for users to select genes through manual input
+    and random selection, both always visible.
     
     Returns:
         List of selected gene symbols
@@ -144,62 +144,95 @@ def create_landing_page():
     
     # Load unique genes for validation
     unique_genes_df = load_unique_genes()
-    unique_gene_list = unique_genes_df['gene_symbol'].tolist()
+    unique_gene_list = [gene.upper() for gene in unique_genes_df['gene_symbol'].tolist()]  # Convert to uppercase
     total_genes = len(unique_gene_list)
     
     st.write(f"Available genes: {total_genes}")
     
-    # Gene input methods
-    input_method = st.radio("Select how to input genes:", 
-                          ["Manual Entry", "Random Selection"])
+    # Initialize the key for the text area in session state if not present
+    if 'gene_input_text' not in st.session_state:
+        st.session_state.gene_input_text = ""
     
-    selected_genes = []
+    # Comma-separated gene input - Always visible
+    gene_input = st.text_area("Enter gene symbols (comma-separated):", 
+                            value=st.session_state.gene_input_text,
+                            height=150,
+                            help="e.g., BRCA1, BRCA2, TP53",
+                            key="gene_input")
     
-    if input_method == "Manual Entry":
-        # Comma-separated gene input
-        gene_input = st.text_area("Enter gene symbols (comma-separated):", 
-                                height=150,
-                                help="e.g., BRCA1, BRCA2, TP53")
+    # Process manual input
+    input_genes = []
+    if gene_input:
+        # Convert to uppercase before processing
+        input_genes = [g.strip().upper() for g in gene_input.split(',') if g.strip()]
         
-        if gene_input:
-            input_genes = [g.strip() for g in gene_input.split(',') if g.strip()]
+    # Random gene selection - Always visible
+    st.write("Add random genes:")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        num_genes = st.number_input("Number of random genes:", 
+                                  min_value=1, 
+                                  max_value=total_genes, 
+                                  value=5)
+    with col2:
+        generate_clicked = st.button("Generate")
+        if generate_clicked:
+            # Ensure not selecting more genes than available
+            max_genes = min(num_genes, total_genes)
+            random_genes = random.sample(unique_gene_list, max_genes)
             
-            # Validate genes
-            valid_genes = [g for g in input_genes if g in unique_gene_list]
-            invalid_genes = [g for g in input_genes if g not in unique_gene_list and g.strip()]
+            # Append random genes to any existing manually entered genes
+            new_gene_list = input_genes.copy() if input_genes else []
             
-            if invalid_genes:
-                st.warning(f"Invalid genes (will be dropped): {', '.join(invalid_genes)}")
+            # Add random genes that aren't already in the list
+            for gene in random_genes:
+                if gene not in new_gene_list:
+                    new_gene_list.append(gene)
             
-            selected_genes = valid_genes
-    else:
-        # Random gene selection
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            num_genes = st.number_input("Number of random genes:", 
-                                      min_value=1, 
-                                      max_value=total_genes, 
-                                      value=10)
-        with col2:
-            if st.button("Generate"):
-                # Ensure not selecting more genes than available
-                max_genes = min(num_genes, total_genes)
-                selected_genes = random.sample(unique_gene_list, max_genes)
+            # Update the text area with the combined list
+            st.session_state.gene_input_text = ", ".join(new_gene_list)
+            st.rerun()
+    
+    # Validate genes against the uppercase list
+    valid_genes = [g for g in input_genes if g in unique_gene_list]
+    invalid_genes = [g for g in input_genes if g not in unique_gene_list and g.strip()]
+    
+    if invalid_genes:
+        st.warning(f"Invalid genes (will be dropped): {', '.join(invalid_genes)}")
+    
+    selected_genes = valid_genes
     
     # Show selected genes
     if selected_genes:
         st.write(f"Selected genes ({len(selected_genes)}):")
         st.write(", ".join(selected_genes))
+        
+        # Store selected genes in session state to ensure they're used for graph building
+        # Check if the selection has changed
+        if set(selected_genes) != set(st.session_state.previous_gene_selection):
+            st.session_state.selected_genes = selected_genes
+            st.session_state.needs_graph_update = True
+            st.session_state.previous_gene_selection = selected_genes.copy()
+        else:
+            st.session_state.selected_genes = selected_genes
     
     # Add a reset button at the bottom of the landing page
     if st.button("Reset All"):
         with st.spinner("Resetting application..."):
             # Clear the ontology
             clear_ontology()
-            st.success("Application has been reset.")
+            
+            # Reset all gene selection related state
+            st.session_state.gene_input_text = ""
+            st.session_state.selected_genes = []
+            st.session_state.previous_gene_selection = []
+            st.session_state.has_generated_graph = False
+            st.session_state.needs_graph_update = False
             
             # Also reset application state
             reset_application_state()
+            st.success("Application has been reset.")
+            st.rerun()
     
     return selected_genes
 
@@ -328,6 +361,10 @@ def run_app():
             st.session_state.graph_data = None
         if 'has_generated_graph' not in st.session_state:
             st.session_state.has_generated_graph = False
+        if 'needs_graph_update' not in st.session_state:
+            st.session_state.needs_graph_update = False
+        if 'previous_gene_selection' not in st.session_state:
+            st.session_state.previous_gene_selection = []
             
         # Create tabs
         tab_titles = ["Gene Selection", "Knowledge Graph", "Phenotypes", "Statistics"]
@@ -342,23 +379,26 @@ def run_app():
         with genes_tab:
             selected_genes = create_landing_page()
             
-            # Store selected genes in session state immediately when they're returned
-            if selected_genes:
-                st.session_state.selected_genes = selected_genes
+            # Check if we need to generate/update the graph
+            # This happens when:
+            # 1. Genes are selected AND
+            # 2. Either the graph hasn't been generated yet OR the gene selection has changed
+            if selected_genes and (not st.session_state.has_generated_graph or st.session_state.needs_graph_update):
+                # Set up a placeholder for animation while generating graph
+                animation_placeholder = st.empty()
                 
-                # Generate graph automatically if genes were selected and graph hasn't been generated yet
-                if not st.session_state.has_generated_graph:
-                    # Set up a placeholder for animation while generating graph
-                    animation_placeholder = st.empty()
-                    
-                    with st.spinner("Generating knowledge graph..."):
-                        # Load data with animation, passing selected genes
-                        graph_data = load_data_with_animation(animation_placeholder, selected_genes)
-                        st.session_state.graph_data = graph_data
-                        st.session_state.has_generated_graph = True
-                    
-                    st.success("Knowledge graph generated. You can now navigate to the Knowledge Graph and Phenotypes tabs.")
-                    st.rerun()  # Rerun to reflect the changes in tab state
+                # Generate the graph with the current selection
+                with st.spinner("Generating knowledge graph..."):
+                    # Load data with animation, passing selected genes
+                    graph_data = load_data_with_animation(animation_placeholder, selected_genes)
+                    st.session_state.graph_data = graph_data
+                    st.session_state.has_generated_graph = True
+                    # Reset the update flag
+                    st.session_state.needs_graph_update = False
+                
+                st.success("Knowledge graph generated. You can now navigate to the Knowledge Graph and Phenotypes tabs.")
+                # This rerun is needed but only done once after graph generation
+                st.rerun()  # Rerun to reflect the changes in tab state
         
         # Knowledge Graph Tab
         with graph_tab:
@@ -438,7 +478,7 @@ def run_app():
                         st.session_state.graph_data = graph_data
                     
                     st.success("Knowledge graph regenerated.")
-                    st.rerun()
+                    # No rerun needed here - it will refresh naturally when the button is clicked
         
         # Phenotypes Tab
         with phenotypes_tab:
