@@ -86,8 +86,8 @@ def update_figure_data(
     # 4: Diagnostic nodes (trace_nodes_diagnostic)
     
     # Update gene-phenotype edge visibility and opacity (index 0)
-    if not controls["show_gene_pheno_edges"] or not (controls["show_genes"] and controls["show_phenotypes"]):
-        # Hide edges completely
+    if not controls["show_gene_pheno_edges"]:
+        # Hide edges completely - only depend on the specific edge control
         fig_data[0].opacity = 0
         fig_data[0].visible = "legendonly"
     else:
@@ -95,8 +95,8 @@ def update_figure_data(
         fig_data[0].visible = True
     
     # Update phenotype-diagnostic edge visibility and opacity (index 1)
-    if not controls["show_pheno_diag_edges"] or not (controls["show_phenotypes"] and controls["show_diagnostics"]):
-        # Hide edges completely
+    if not controls["show_pheno_diag_edges"]:
+        # Hide edges completely - only depend on the specific edge control
         fig_data[1].opacity = 0
         fig_data[1].visible = "legendonly"
     else:
@@ -204,9 +204,9 @@ def calculate_visibility_stats(
     # Calculate total displayed nodes
     stats["displayed_nodes"] = stats["visible_genes"] + stats["visible_phenotypes"] + stats["visible_diagnostics"]
     
-    # Calculate visible edges
-    stats["visible_gene_pheno_edges"] = graph_stats["gene_to_pheno_edges"] if controls["show_gene_pheno_edges"] and controls["show_genes"] and controls["show_phenotypes"] else 0
-    stats["visible_pheno_diag_edges"] = graph_stats["pheno_to_diag_edges"] if controls["show_pheno_diag_edges"] and controls["show_phenotypes"] and controls["show_diagnostics"] else 0
+    # Calculate visible edges - independent of node visibility 
+    stats["visible_gene_pheno_edges"] = graph_stats["gene_to_pheno_edges"] if controls["show_gene_pheno_edges"] else 0
+    stats["visible_pheno_diag_edges"] = graph_stats["pheno_to_diag_edges"] if controls["show_pheno_diag_edges"] else 0
     
     # Calculate total displayed edges
     stats["displayed_edges"] = stats["visible_gene_pheno_edges"] + stats["visible_pheno_diag_edges"]

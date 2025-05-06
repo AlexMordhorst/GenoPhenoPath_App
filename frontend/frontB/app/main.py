@@ -496,11 +496,14 @@ def run_app():
                              delta=f"{visibility_stats['visible_diagnostics']}/{len(diagnostics)}" 
                              if visibility_stats["visible_diagnostics"] < len(diagnostics) else None)
                 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Total Displayed Nodes", visibility_stats["displayed_nodes"])
                 with col2:
                     st.metric("Total Available Nodes", len(genes) + len(phenotypes) + len(diagnostics))
+                with col3:
+                    # Empty third column for alignment with the row above
+                    st.empty()
                 
                 # Add a horizontal rule to separate sections
                 st.markdown("<hr>", unsafe_allow_html=True)
@@ -516,11 +519,14 @@ def run_app():
                 with col3:
                     st.metric("Total Edges", visibility_stats["displayed_edges"])
                 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Gene-Phenotype Density", f"{visibility_stats['visible_gene_pheno_edges'] / (visibility_stats['visible_genes'] * visibility_stats['visible_phenotypes']):.4f}" if visibility_stats['visible_genes'] > 0 and visibility_stats['visible_phenotypes'] > 0 else "N/A")
                 with col2:
                     st.metric("Phenotype-Diagnostic Density", f"{visibility_stats['visible_pheno_diag_edges'] / (visibility_stats['visible_phenotypes'] * visibility_stats['visible_diagnostics']):.4f}" if visibility_stats['visible_phenotypes'] > 0 and visibility_stats['visible_diagnostics'] > 0 else "N/A")
+                with col3:
+                    # Empty third column for alignment
+                    st.empty()
                 
                 # Add a horizontal rule to separate sections
                 st.markdown("<hr>", unsafe_allow_html=True)
@@ -528,11 +534,14 @@ def run_app():
                 # Performance statistics
                 st.subheader("Performance Statistics")
                 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Graph Generation Time", f"{elapsed_time:.2f} seconds")
                 with col2:
                     st.metric("Nodes per Second", f"{(len(genes) + len(phenotypes) + len(diagnostics)) / elapsed_time:.2f}")
+                with col3:
+                    # Empty third column for alignment
+                    st.empty()
                 # End of statistics sections
         
     except Exception as e:
