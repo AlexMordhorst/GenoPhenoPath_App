@@ -67,10 +67,10 @@ def load_knowledge_graph(selected_genes=None):
 
 def load_data_with_animation(animation_placeholder: Any, selected_genes=None):
     """
-    Load the knowledge graph data with an animation displayed during loading.
+    Load the knowledge graph data (animation removed).
     
     Args:
-        animation_placeholder: Streamlit container for the animation
+        animation_placeholder: Streamlit container (kept for backward compatibility)
         selected_genes: Optional list of gene symbols to filter the graph
         
     Returns:
@@ -83,49 +83,25 @@ def load_data_with_animation(animation_placeholder: Any, selected_genes=None):
         - NetworkX graph
         - Dictionary of graph statistics
         - Loading time (seconds)
-        - List of animation frames (for transitions)
+        - Empty list (kept for backward compatibility)
         
     Used in:
     - frontend.frontB.app.main.run_app
     """
-    # Use a list to store the result since nonlocal isn't available
-    result = [None]
-    # Flag to indicate when loading is complete
-    loading_complete = [False]
-    
-    def load_data_thread():
-        # Call the non-cached function with selected genes if provided
+    # Display a simple loading spinner instead of the animation
+    with st.spinner("Generating knowledge graph..."):
+        # Call the function directly without animation or threading
         print(f"DEBUG - Selected genes in load_data_with_animation: {selected_genes if selected_genes else 'None'}")
-        result[0] = load_knowledge_graph(selected_genes)
-        loading_complete[0] = True
-    
-    # Start the loading in a separate thread
-    loading_thread = threading.Thread(target=load_data_thread)
-    loading_thread.start()
-    
-    # Generate animation frames
-    animation_length = 100
-    frames = generate_animation_frames(animation_length)
-    frame_index = 0
-    
-    # Show DNA animation while loading
-    with st.spinner(""):
-        # Display the spinning DNA animation while loading
-        while not loading_complete[0]:
-            frame_index = display_dna_animation(
-                animation_placeholder,
-                frames,
-                frame_index
-            )
-    
-    # Clear the animation when done
-    animation_placeholder.empty()
+        result = load_knowledge_graph(selected_genes)
     
     # Get the result
-    fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time = result[0]
+    fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time = result
     
     # Show toast when loading completes
     st.toast(f"Graph loaded in {elapsed_time:.2f} seconds")
+    
+    # Return an empty list for frames to maintain backward compatibility
+    frames = []
     
     return fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time, frames
 
@@ -384,17 +360,16 @@ def run_app():
             # 1. Genes are selected AND
             # 2. Either the graph hasn't been generated yet OR the gene selection has changed
             if selected_genes and (not st.session_state.has_generated_graph or st.session_state.needs_graph_update):
-                # Set up a placeholder for animation while generating graph
+                # Load data and generate the graph with the current selection
+                # The placeholder is no longer used for animation but kept for API compatibility
                 animation_placeholder = st.empty()
                 
                 # Generate the graph with the current selection
-                with st.spinner("Generating knowledge graph..."):
-                    # Load data with animation, passing selected genes
-                    graph_data = load_data_with_animation(animation_placeholder, selected_genes)
-                    st.session_state.graph_data = graph_data
-                    st.session_state.has_generated_graph = True
-                    # Reset the update flag
-                    st.session_state.needs_graph_update = False
+                graph_data = load_data_with_animation(animation_placeholder, selected_genes)
+                st.session_state.graph_data = graph_data
+                st.session_state.has_generated_graph = True
+                # Reset the update flag
+                st.session_state.needs_graph_update = False
                 
                 st.success("Knowledge graph generated. You can now navigate to the Knowledge Graph and Phenotypes tabs.")
                 # This rerun is needed but only done once after graph generation
@@ -469,13 +444,12 @@ def run_app():
                     # Clear the ontology to remove all gene entities
                     clear_ontology()
                     
-                    # Set up a placeholder for animation
+                    # The placeholder is no longer used for animation but kept for API compatibility
                     animation_placeholder = st.empty()
                     
-                    with st.spinner("Regenerating knowledge graph..."):
-                        # Load data with animation, passing selected genes
-                        graph_data = load_data_with_animation(animation_placeholder, st.session_state.selected_genes)
-                        st.session_state.graph_data = graph_data
+                    # Load data, passing selected genes
+                    graph_data = load_data_with_animation(animation_placeholder, st.session_state.selected_genes)
+                    st.session_state.graph_data = graph_data
                     
                     st.success("Knowledge graph regenerated.")
                     # No rerun needed here - it will refresh naturally when the button is clicked

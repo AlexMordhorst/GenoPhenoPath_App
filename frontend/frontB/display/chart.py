@@ -107,26 +107,19 @@ def show_transition_animation(
     frame_count: int = 5
 ):
     """
-    Show a transition animation when visualization settings change.
+    Animation removed - this function now does nothing.
+    Keeping the signature for backwards compatibility.
     
     Args:
-        animation_placeholder: Streamlit container for the animation
-        animation_frames: List of animation frame strings
-        frame_count: Number of frames to display
+        animation_placeholder: Streamlit container (not used)
+        animation_frames: List of animation frame strings (not used)
+        frame_count: Number of frames to display (not used)
         
     Used in:
     - frontend.frontB.display.chart.update_visualization
     """
-    frame_index = 0
-    
-    # Display a few frames of animation
-    for _ in range(frame_count):
-        frame_index = display_dna_animation(
-            animation_placeholder,
-            animation_frames,
-            frame_index,
-            0.1  # Faster animation for transitions
-        )
+    # Animation has been removed
+    pass
 
 def calculate_visibility_stats(
     controls: Dict[str, Any],
@@ -370,13 +363,10 @@ def update_visualization(
         
         # Check if visualization settings changed
         if check_controls_changed():
-            # Show brief animation when settings change
-            show_transition_animation(animation_placeholder, animation_frames)
-            
-            # Update stored control state
+            # Update stored control state (animation has been removed)
             update_control_state()
         
-        # Clear the animation placeholder
+        # Clear the placeholder (no longer used for animation)
         animation_placeholder.empty()
         
         # Create a container for the 3D graph with zero margins
