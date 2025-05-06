@@ -424,6 +424,7 @@ def update_visualization(
         # Apply targeted CSS to fix the canvas/container height mismatch
         st.markdown("""
         <style>
+        
         /* Target the specific Plotly container-canvas gap */
         .js-plotly-plot, .plot-container.plotly {
             height: auto !important;
@@ -494,8 +495,67 @@ def update_visualization(
         # CORE APPROACH: Use st.columns to force vertical stacking without spacing
         col1 = st.container()
         
+        # Load phenotype names for hover display
+        try:
+            from backend.backA.data_processing.loader import load_unique_phenotypes
+            phenotype_df = load_unique_phenotypes()
+            # Create a dictionary mapping from HPO ID to HPO name
+            phenotype_names = dict(zip(phenotype_df['hpo_id'], phenotype_df['hpo_name']))
+        except Exception as e:
+            # Default to empty dictionary if loading fails
+            phenotype_names = {}
+            print(f"Warning: Failed to load phenotype names: {str(e)}")
+        
         # 1. Visualization in the first slot
         with col1:
+            # Modify hovertemplate for phenotype nodes to include HPO name
+            if len(phenotype_names) > 0 and len(updated_fig.data) >= 4:
+                # Index 3 is the phenotype nodes trace
+                phenotype_trace = updated_fig.data[3]
+                # Create new hover texts with HPO names included
+                new_hover_texts = []
+                
+                for hpo_id in phenotypes:
+                    if hpo_id in phenotype_names:
+                        hpo_name = phenotype_names[hpo_id]
+                        new_hover_texts.append(f"{hpo_id}<br>{hpo_name}")
+                    else:
+                        new_hover_texts.append(hpo_id)
+                
+                if len(new_hover_texts) == len(phenotype_trace.hovertext):
+                    phenotype_trace.hovertext = new_hover_texts
+                    # Update the hoverinfo mode
+                    phenotype_trace.hoverinfo = "text"
+            
+            # Add CSS to style the hover tooltips better
+            st.markdown("""
+            <style>
+            /* Style the Plotly hover tooltip to be more visible and readable */
+            .hovertext {
+                background-color: rgba(0, 0, 0, 0.85) !important;
+                color: #ffb86c !important;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+                font-size: 14px !important;
+                padding: 8px !important;
+                border-radius: 4px !important;
+                border: 1px solid rgba(255, 184, 108, 0.4) !important;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+                max-width: 300px !important;
+                white-space: pre-wrap !important;
+            }
+            
+            /* Fix for Plotly's hover positioning */
+            .js-plotly-plot .plotly {
+                position: relative !important;
+            }
+            
+            /* Make the tooltip overlay on top of everything */
+            .hovertext {
+                z-index: 10000 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
             # Display the plot with minimal height
             st.plotly_chart(
                 updated_fig, 
@@ -508,6 +568,8 @@ def update_visualization(
                 },
                 height=650  # Further reduced height
             )
+            
+            # Keep the original hover styling without the top-left display functionality
         
         # 2. Add the legend that will overlap with the gap between canvas and container
         st.markdown("""
