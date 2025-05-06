@@ -188,7 +188,7 @@ def apply_custom_css():
         
         /* Button styling */
         .stButton button {
-            background-color: #483d8b !important;
+            background-color: rgba(30, 30, 30, 0.8) !important;
             color: white !important;
             border: none !important;
             border-radius: 4px !important;
@@ -196,7 +196,7 @@ def apply_custom_css():
         
         /* Slider styling */
         .stSlider div[data-baseweb="slider"] div {
-            background-color: #483d8b !important;
+            background-color: rgba(50, 50, 50, 0.8) !important;
         }
         
         /* Make metric labels more visible */
@@ -265,18 +265,18 @@ def apply_custom_css():
         
         /* Active tab button styling */
         [data-testid="stTabs"] button[aria-selected="true"] {
-            background-color: #483d8b !important;
+            background-color: rgba(30, 30, 30, 0.8) !important;
             color: white !important;
             font-weight: bold !important;
             border: none !important;
             border-radius: 3px !important;
-            box-shadow: 0 0 5px rgba(72, 61, 139, 0.5) !important;
+            box-shadow: 0 0 5px rgba(100, 100, 100, 0.3) !important;
         }
         
         /* Inactive tab button styling */
         [data-testid="stTabs"] button[aria-selected="false"] {
-            color: #8be9fd !important;
-            background-color: rgba(15, 20, 30, 0.8) !important;
+            color: #cccccc !important;
+            background-color: rgba(20, 20, 20, 0.7) !important;
             opacity: 0.8 !important;
             border: none !important;
             border-radius: 3px !important;

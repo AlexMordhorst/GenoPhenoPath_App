@@ -466,6 +466,28 @@ def update_visualization(
             padding: 10px;
             border-radius: 5px;
         }
+        
+        /* Override any colored styling in controls */
+        .stSlider div[data-baseweb="slider"] div {
+            background-color: rgba(50, 50, 50, 0.8) !important;
+        }
+        
+        /* Style slider thumb/handle */
+        .stSlider [role="slider"] {
+            background-color: #aaaaaa !important;
+            border-color: #cccccc !important;
+        }
+        
+        /* Style checkboxes with neutral colors */
+        .stCheckbox > div[role="checkbox"] > div:first-child {
+            background-color: rgba(50, 50, 50, 0.8) !important;
+            border-color: rgba(100, 100, 100, 0.3) !important;
+        }
+        
+        /* Style checkbox checked state */
+        .stCheckbox > div[role="checkbox"][data-checked="true"] > div:first-child {
+            background-color: rgba(70, 70, 70, 0.9) !important;
+        }
         </style>
         """, unsafe_allow_html=True)
         

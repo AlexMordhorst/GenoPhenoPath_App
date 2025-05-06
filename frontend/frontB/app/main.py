@@ -144,14 +144,33 @@ def create_landing_page():
         
     # Random gene selection - Always visible
     st.write("Add random genes:")
-    col1, col2 = st.columns([3, 1])
-    with col1:
+    
+    # Create a container with consistent width for all controls
+    with st.container():
+        # Add custom CSS for consistent button and input width
+        st.markdown("""
+        <style>
+        /* Make the number input similar width to buttons */
+        [data-testid="stNumberInput"] {
+            width: 100%;
+        }
+        
+        /* Make all buttons full width */
+        .stButton > button {
+            width: 100%;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Number input for random genes - full width
         num_genes = st.number_input("Number of random genes:", 
                                   min_value=1, 
                                   max_value=total_genes, 
                                   value=5)
-    with col2:
+        
+        # Generate button - placed below input, full width
         generate_clicked = st.button("Generate")
+        
         if generate_clicked:
             # Ensure not selecting more genes than available
             max_genes = min(num_genes, total_genes)
@@ -192,23 +211,24 @@ def create_landing_page():
         else:
             st.session_state.selected_genes = selected_genes
     
-    # Add a reset button at the bottom of the landing page
-    if st.button("Reset All"):
-        with st.spinner("Resetting application..."):
-            # Clear the ontology
-            clear_ontology()
-            
-            # Reset all gene selection related state
-            st.session_state.gene_input_text = ""
-            st.session_state.selected_genes = []
-            st.session_state.previous_gene_selection = []
-            st.session_state.has_generated_graph = False
-            st.session_state.needs_graph_update = False
-            
-            # Also reset application state
-            reset_application_state()
-            st.success("Application has been reset.")
-            st.rerun()
+    # Add a reset button at the bottom of the landing page with consistent width
+    with st.container():
+        if st.button("Reset All"):
+            with st.spinner("Resetting application..."):
+                # Clear the ontology
+                clear_ontology()
+                
+                # Reset all gene selection related state
+                st.session_state.gene_input_text = ""
+                st.session_state.selected_genes = []
+                st.session_state.previous_gene_selection = []
+                st.session_state.has_generated_graph = False
+                st.session_state.needs_graph_update = False
+                
+                # Also reset application state
+                reset_application_state()
+                st.success("Application has been reset.")
+                st.rerun()
     
     return selected_genes
 
