@@ -172,21 +172,44 @@ def create_landing_page():
         generate_clicked = st.button("Generate")
         
         if generate_clicked:
-            # Ensure not selecting more genes than available
-            max_genes = min(num_genes, total_genes)
-            random_genes = random.sample(unique_gene_list, max_genes)
+            # Set a flag to prevent double-clicking issues
+            if 'generating_genes' in st.session_state and st.session_state.generating_genes:
+                st.warning("Please wait for the current generation to finish.")
+                return []  # Return early to prevent race conditions
+                
+            # Set flag to indicate we're generating
+            st.session_state.generating_genes = True
             
-            # Append random genes to any existing manually entered genes
-            new_gene_list = input_genes.copy() if input_genes else []
-            
-            # Add random genes that aren't already in the list
-            for gene in random_genes:
-                if gene not in new_gene_list:
-                    new_gene_list.append(gene)
-            
-            # Update the text area with the combined list
-            st.session_state.gene_input_text = ", ".join(new_gene_list)
-            st.rerun()
+            try:
+                # Ensure not selecting more genes than available
+                max_genes = min(num_genes, total_genes)
+                random_genes = random.sample(unique_gene_list, max_genes)
+                
+                # Append random genes to any existing manually entered genes
+                new_gene_list = input_genes.copy() if input_genes else []
+                
+                # Add random genes that aren't already in the list
+                for gene in random_genes:
+                    if gene not in new_gene_list:
+                        new_gene_list.append(gene)
+                
+                # Update the text area with the combined list
+                st.session_state.gene_input_text = ", ".join(new_gene_list)
+                
+                # We're done generating
+                st.session_state.generating_genes = False
+                
+                # Add a small sleep to ensure database operations complete
+                # This helps prevent the "UNIQUE constraint failed" error
+                time.sleep(0.1)
+                
+                # Now it's safe to rerun
+                st.rerun()
+            except Exception as e:
+                # Make sure we reset the flag if there's an error
+                st.session_state.generating_genes = False
+                st.error(f"Error generating genes: {str(e)}")
+                raise e
     
     # Validate genes against the uppercase list
     valid_genes = [g for g in input_genes if g in unique_gene_list]
@@ -205,6 +228,19 @@ def create_landing_page():
         # Store selected genes in session state to ensure they're used for graph building
         # Check if the selection has changed
         if set(selected_genes) != set(st.session_state.previous_gene_selection):
+            # Check if any genes were deleted, regardless of whether new ones were added
+            previous_genes = set(st.session_state.previous_gene_selection)
+            current_genes = set(selected_genes)
+            removed_genes = previous_genes - current_genes
+
+            if removed_genes:
+                # If any genes were deleted, clear the ontology to ensure the graph is completely rebuilt
+                print(f"DEBUG - Genes were deleted. Previous: {len(previous_genes)}, Current: {len(current_genes)}")
+                print(f"DEBUG - Removed genes: {removed_genes}")
+                print(f"DEBUG - Added genes: {current_genes - previous_genes}")
+                from backend.backA.ontology.schema import clear_ontology
+                clear_ontology()
+
             st.session_state.selected_genes = selected_genes
             st.session_state.needs_graph_update = True
             st.session_state.previous_gene_selection = selected_genes.copy()
@@ -224,6 +260,7 @@ def create_landing_page():
                 st.session_state.previous_gene_selection = []
                 st.session_state.has_generated_graph = False
                 st.session_state.needs_graph_update = False
+                st.session_state.generating_genes = False
                 
                 # Also reset application state
                 reset_application_state()
@@ -361,6 +398,8 @@ def run_app():
             st.session_state.needs_graph_update = False
         if 'previous_gene_selection' not in st.session_state:
             st.session_state.previous_gene_selection = []
+        if 'generating_genes' not in st.session_state:
+            st.session_state.generating_genes = False
             
         # Create tabs
         tab_titles = ["Gene Selection", "Knowledge Graph", "Phenotypes", "Statistics"]
@@ -383,14 +422,32 @@ def run_app():
                 # Load data and generate the graph with the current selection
                 # The placeholder is no longer used for animation but kept for API compatibility
                 animation_placeholder = st.empty()
-                
+
+                # Check if we're rebuilding with any genes removed from the previous graph
+                if (st.session_state.has_generated_graph and 'graph_data' in st.session_state):
+                    previous_graph_genes = set(st.session_state.graph_data[1])  # Index 1 contains genes
+                    current_genes = set(selected_genes)
+                    removed_genes = previous_graph_genes - current_genes
+
+                    if removed_genes:
+                        # If any genes were removed, clear the graph data to ensure complete rebuild
+                        print(f"DEBUG - Graph rebuild with removed genes:")
+                        print(f"DEBUG - Current genes: {len(current_genes)}, Previous graph genes: {len(previous_graph_genes)}")
+                        print(f"DEBUG - Removed genes: {removed_genes}")
+                        print(f"DEBUG - Added genes: {current_genes - previous_graph_genes}")
+
+                        from backend.backA.ontology.schema import clear_ontology
+                        clear_ontology()
+                        st.session_state.graph_data = None
+                        print("DEBUG - Ontology cleared and graph_data reset to None")
+
                 # Generate the graph with the current selection
                 graph_data = load_data_with_animation(animation_placeholder, selected_genes)
                 st.session_state.graph_data = graph_data
                 st.session_state.has_generated_graph = True
                 # Reset the update flag
                 st.session_state.needs_graph_update = False
-                
+
                 st.success("Knowledge graph generated. You can now navigate to the Knowledge Graph and Phenotypes tabs.")
                 # This rerun is needed but only done once after graph generation
                 st.rerun()  # Rerun to reflect the changes in tab state
