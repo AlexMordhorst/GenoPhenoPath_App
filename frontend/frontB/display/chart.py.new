@@ -1,0 +1,101 @@
+def update_figure_data(
+    fig_data: List[go.Scatter3d], 
+    controls: Dict[str, Any]
+) -> List[go.Scatter3d]:
+    """
+    Update Plotly figure data based on control settings.
+    
+    Args:
+        fig_data: List of Plotly trace objects
+        controls: Dictionary with control values
+        
+    Returns:
+        Updated list of Plotly trace objects
+        
+    Used in:
+    - frontend.frontB.display.chart.update_visualization
+    """
+    # With the opacity bucket approach, the figure structure is different:
+    # - First 3 traces are legend-only traces for the main categories
+    # - Edge traces (gene-phenotype, phenotype-diagnostic)
+    # - Multiple traces per node type, grouped by opacity bucket
+    
+    # Identify trace types
+    legend_traces = fig_data[:3]  # First 3 traces are legend-only
+    edge_traces = fig_data[3:5]   # Next 2 traces are edges
+    node_traces = fig_data[5:]    # Remaining traces are node buckets
+    
+    # Find node traces by their names
+    gene_traces = [t for t in node_traces if 'Genes' in t.name]
+    phenotype_traces = [t for t in node_traces if 'Phenotypes' in t.name]
+    diagnostic_traces = [t for t in node_traces if 'Diagnostics' in t.name]
+    
+    # Update edge traces
+    gene_pheno_edge_trace = edge_traces[0]
+    pheno_diag_edge_trace = edge_traces[1]
+    
+    # Update gene-phenotype edge visibility
+    if not controls["show_gene_pheno_edges"]:
+        gene_pheno_edge_trace.opacity = 0
+        gene_pheno_edge_trace.visible = "legendonly"
+    else:
+        gene_pheno_edge_trace.visible = True
+    
+    # Update phenotype-diagnostic edge visibility
+    if not controls["show_pheno_diag_edges"]:
+        pheno_diag_edge_trace.opacity = 0
+        pheno_diag_edge_trace.visible = "legendonly"
+    else:
+        pheno_diag_edge_trace.visible = True
+    
+    # Update node trace visibilities by type
+    
+    # Update gene nodes
+    gene_legend_trace = legend_traces[0]
+    if not controls["show_genes"]:
+        # Hide gene legend trace
+        gene_legend_trace.showlegend = False
+        # Hide all gene bucket traces
+        for trace in gene_traces:
+            trace.visible = "legendonly"
+    else:
+        # Show gene legend trace
+        gene_legend_trace.showlegend = True
+        # Show all gene bucket traces and update size
+        for trace in gene_traces:
+            trace.visible = True
+            trace.marker.size = controls["gene_size"]
+    
+    # Update phenotype nodes
+    phenotype_legend_trace = legend_traces[1]
+    if not controls["show_phenotypes"]:
+        # Hide phenotype legend trace
+        phenotype_legend_trace.showlegend = False
+        # Hide all phenotype bucket traces
+        for trace in phenotype_traces:
+            trace.visible = "legendonly"
+    else:
+        # Show phenotype legend trace
+        phenotype_legend_trace.showlegend = True
+        # Show all phenotype bucket traces and update size
+        for trace in phenotype_traces:
+            trace.visible = True
+            trace.marker.size = controls["phenotype_size"]
+    
+    # Update diagnostic nodes
+    diagnostic_legend_trace = legend_traces[2]
+    if not controls["show_diagnostics"]:
+        # Hide diagnostic legend trace
+        diagnostic_legend_trace.showlegend = False
+        # Hide all diagnostic bucket traces
+        for trace in diagnostic_traces:
+            trace.visible = "legendonly"
+    else:
+        # Show diagnostic legend trace
+        diagnostic_legend_trace.showlegend = True
+        # Show all diagnostic bucket traces and update size
+        for trace in diagnostic_traces:
+            trace.visible = True
+            trace.marker.size = controls["diagnostic_size"]
+    
+    return fig_data

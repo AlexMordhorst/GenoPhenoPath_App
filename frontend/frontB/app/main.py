@@ -211,20 +211,44 @@ def create_landing_page():
                 st.error(f"Error generating genes: {str(e)}")
                 raise e
     
-    # Validate genes against the uppercase list
-    valid_genes = [g for g in input_genes if g in unique_gene_list]
-    invalid_genes = [g for g in input_genes if g not in unique_gene_list and g.strip()]
+    # Validate genes with exact matching against the uppercase list
+    valid_genes = [g for g in input_genes if g in set(unique_gene_list)]
+    invalid_genes = [g for g in input_genes if g not in set(unique_gene_list) and g.strip()]
     
     if invalid_genes:
         st.warning(f"Invalid genes (will be dropped): {', '.join(invalid_genes)}")
     
     selected_genes = valid_genes
     
-    # Show selected genes
+    # Check if we had genes before but now have none (all genes were deleted)
+    # This is a different case from removing some genes but keeping others
+    if not selected_genes and st.session_state.has_generated_graph:
+        previous_genes = set(st.session_state.previous_gene_selection)
+        if previous_genes:  # We had genes before, but now have none
+            print(f"DEBUG - All genes were removed. Previous: {len(previous_genes)}, Current: 0")
+            # Clear the ontology
+            from backend.backA.ontology.schema import clear_ontology
+            clear_ontology()
+
+            # Clear gene data from the database
+            from backend.backA.data_storage.value_manager import clear_gene_data
+            clear_gene_data(list(previous_genes))
+
+            # Reset graph-related state
+            st.session_state.selected_genes = []
+            st.session_state.has_generated_graph = False
+            st.session_state.graph_data = None
+            st.session_state.needs_graph_update = False
+            st.session_state.previous_gene_selection = []
+
+            st.success("Gene selection cleared. Graph has been reset.")
+            # No need to rerun here - the empty state will be handled correctly
+
+    # Show selected genes if any
     if selected_genes:
         st.write(f"Selected genes ({len(selected_genes)}):")
         st.write(", ".join(selected_genes))
-        
+
         # Store selected genes in session state to ensure they're used for graph building
         # Check if the selection has changed
         if set(selected_genes) != set(st.session_state.previous_gene_selection):
@@ -253,7 +277,11 @@ def create_landing_page():
             with st.spinner("Resetting application..."):
                 # Clear the ontology
                 clear_ontology()
-                
+
+                # Clear data for the selected genes from the database
+                from backend.backA.data_storage.value_manager import clear_gene_data
+                clear_gene_data(st.session_state.selected_genes)
+
                 # Reset all gene selection related state
                 st.session_state.gene_input_text = ""
                 st.session_state.selected_genes = []
@@ -261,7 +289,7 @@ def create_landing_page():
                 st.session_state.has_generated_graph = False
                 st.session_state.needs_graph_update = False
                 st.session_state.generating_genes = False
-                
+
                 # Also reset application state
                 reset_application_state()
                 st.success("Application has been reset.")
@@ -309,17 +337,40 @@ def create_phenotype_list_page(phenotypes):
 def run_app():
     """
     Run the main GenoPhenoPath application.
-    
+
     This function orchestrates the entire application flow using a tabbed interface:
     1. Configure page settings and styling
     2. Initialize session state
     3. Set up the tab interface as the main navigation
     4. Display appropriate content based on the selected tab
-    
+
     Used in:
     - app.py: The main entry point for the Streamlit application
     """
     try:
+        # Add session management to ensure we have a clean slate on page reload
+        # Session state needs to be initialized with a session ID to detect refreshes
+
+        # Generate a session ID if not present
+        if 'session_id' not in st.session_state:
+            import uuid
+            st.session_state.session_id = str(uuid.uuid4())
+
+            # This indicates a new session or page reload
+            # We need to clear existing selections and data
+            print("New session detected, clearing previous selections")
+
+            # Clear any previous gene selections
+            st.session_state.gene_input_text = ""
+            st.session_state.selected_genes = []
+            st.session_state.previous_gene_selection = []
+            st.session_state.has_generated_graph = False
+            st.session_state.needs_graph_update = False
+
+            # Reset the ontology to be safe
+            from backend.backA.ontology.schema import clear_ontology
+            clear_ontology()
+
         # Configure page settings and styling
         configure_page_settings()
         apply_custom_css()
@@ -456,35 +507,41 @@ def run_app():
         with graph_tab:
             if not has_genes:
                 st.info("Please select genes in the Gene Selection tab first.")
+                # Make sure we reset graph_data when there are no genes
+                # This is a failsafe in case has_generated_graph wasn't properly reset
+                if st.session_state.graph_data is not None:
+                    st.session_state.graph_data = None
+                    st.session_state.has_generated_graph = False
             elif not st.session_state.has_generated_graph:
                 st.info("Please wait while the knowledge graph is being generated...")
             else:
                 # Create animation placeholder
                 animation_placeholder = st.empty()
-                
-                # Retrieve graph data from session state
-                (fig, genes, phenotypes, diagnostics, layout_3d, graph, 
-                 graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+
+                # Double-check to make sure graph_data exists
+                if st.session_state.graph_data is None:
+                    st.error("Graph data is missing. Please return to the Gene Selection tab and regenerate the graph.")
+                    st.session_state.has_generated_graph = False
+                else:
+                    # Retrieve graph data from session state
+                    (fig, genes, phenotypes, diagnostics, layout_3d, graph,
+                     graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
                 
                 # Initialize controls with default values
                 if 'controls' not in st.session_state:
                     # Default control values
                     st.session_state.controls = {
                         "show_genes": True,
-                        "show_phenotypes": True, 
+                        "show_phenotypes": True,
                         "show_diagnostics": True,
                         "show_gene_pheno_edges": True,
                         "show_pheno_diag_edges": True,
                         "gene_size": 10,
                         "phenotype_size": 3,
                         "diagnostic_size": 8,
-                        "gene_opacity": 0.9,
-                        "phenotype_opacity": 0.2,
-                        "diagnostic_opacity": 0.7,
-                        "gene_pheno_opacity": 0.4,
-                        "pheno_diag_opacity": 0.3,
                         "edge_limit": 1000,
                         "search_term": ""
+                        # Removed opacity controls as they're now controlled by the database
                     }
                 
                 # Use the controls from session state
@@ -506,23 +563,43 @@ def run_app():
         with phenotypes_tab:
             if not has_genes:
                 st.info("Please select genes in the Gene Selection tab first.")
+                # Make sure we reset graph_data when there are no genes
+                # This is a failsafe in case has_generated_graph wasn't properly reset
+                if st.session_state.graph_data is not None:
+                    st.session_state.graph_data = None
+                    st.session_state.has_generated_graph = False
             elif not st.session_state.has_generated_graph:
                 st.info("Please wait while the knowledge graph is being generated...")
             else:
-                # Extract phenotypes from the graph data
-                phenotypes = st.session_state.graph_data[2]  # Index 2 contains phenotypes
-                create_phenotype_list_page(phenotypes)
+                # Double-check to make sure graph_data exists
+                if st.session_state.graph_data is None:
+                    st.error("Graph data is missing. Please return to the Gene Selection tab and regenerate the graph.")
+                    st.session_state.has_generated_graph = False
+                else:
+                    # Extract phenotypes from the graph data
+                    phenotypes = st.session_state.graph_data[2]  # Index 2 contains phenotypes
+                    create_phenotype_list_page(phenotypes)
                 
         # Statistics Tab
         with stats_tab:
             if not has_genes:
                 st.info("Please select genes in the Gene Selection tab first.")
+                # Make sure we reset graph_data when there are no genes
+                # This is a failsafe in case has_generated_graph wasn't properly reset
+                if st.session_state.graph_data is not None:
+                    st.session_state.graph_data = None
+                    st.session_state.has_generated_graph = False
             elif not st.session_state.has_generated_graph:
                 st.info("Please wait while the knowledge graph is being generated...")
             else:
-                # Retrieve graph data from session state
-                (fig, genes, phenotypes, diagnostics, layout_3d, graph, 
-                 graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+                # Double-check to make sure graph_data exists
+                if st.session_state.graph_data is None:
+                    st.error("Graph data is missing. Please return to the Gene Selection tab and regenerate the graph.")
+                    st.session_state.has_generated_graph = False
+                else:
+                    # Retrieve graph data from session state
+                    (fig, genes, phenotypes, diagnostics, layout_3d, graph,
+                     graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
                 
                 
                 

@@ -12,6 +12,8 @@ Functions in this module are used in:
 import networkx as nx
 from typing import Any, Dict, Tuple
 
+from backend.backA.data_storage.value_manager import calculate_edge_values
+
 def create_networkx_graph(onto: Any, communities: Dict[str, list]) -> Tuple[nx.DiGraph, Dict]:
     """
     Convert the ontology knowledge graph to a NetworkX directed graph.
@@ -62,5 +64,8 @@ def create_networkx_graph(onto: Any, communities: Dict[str, list]) -> Tuple[nx.D
     
     # Calculate total edges
     edge_counts["total_edges"] = edge_counts["gene_to_pheno_edges"] + edge_counts["pheno_to_diag_edges"]
-    
+
+    # Calculate edge values based on connected node values
+    calculate_edge_values(G, communities)
+
     return G, edge_counts

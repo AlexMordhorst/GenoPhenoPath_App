@@ -14,19 +14,29 @@ from typing import Dict, List, Any, Tuple
 
 from backend.backB.layout.edges import prepare_edge_coordinates
 from backend.backC.statistics.metrics import calculate_graph_statistics
+from backend.backA.data_storage.value_manager import (
+    get_node_opacity,
+    get_edge_opacity,
+    get_node_type,
+    group_nodes_by_opacity,
+    create_opacity_buckets,
+    get_bucket_opacity
+)
 
 def create_node_traces(
     node_coords: Dict[str, List[float]], 
     communities: Dict[str, List[str]],
-    default_sizes: Dict[str, float] = None
+    default_sizes: Dict[str, float] = None,
+    num_buckets: int = 5
 ) -> List[go.Scatter3d]:
     """
-    Create Plotly traces for nodes by type.
+    Create Plotly traces for nodes by type and opacity bucket.
     
     Args:
         node_coords: Dictionary with node coordinates
         communities: Dictionary with node communities (genes, phenotypes, diagnostics)
         default_sizes: Dictionary with default sizes for each node type
+        num_buckets: Number of opacity buckets to use
         
     Returns:
         List of Plotly Scatter3d traces for nodes
@@ -41,83 +51,222 @@ def create_node_traces(
             "diagnostic": 5.13  # 95% of 5.4
         }
     
-    # Create gene nodes trace (blue color)
-    trace_nodes_gene = go.Scatter3d(
-        x=node_coords["x_nodes_gene"],
-        y=node_coords["y_nodes_gene"],
-        z=node_coords["z_nodes_gene"],
+    # Create the opacity buckets
+    buckets = create_opacity_buckets(num_buckets)
+    
+    # Initialize list to hold all node traces
+    all_traces = []
+    
+    # Create multiple traces for gene nodes based on opacity buckets
+    gene_nodes_by_bucket = group_nodes_by_opacity(communities["genes"], "gene", num_buckets)
+    
+    for bucket_idx, node_ids in gene_nodes_by_bucket.items():
+        # Get indices of these nodes in the coordinate arrays
+        indices = [communities["genes"].index(node_id) for node_id in node_ids]
+        
+        # Extract coordinates for these nodes
+        x_vals = [node_coords["x_nodes_gene"][i] for i in indices]
+        y_vals = [node_coords["y_nodes_gene"][i] for i in indices]
+        z_vals = [node_coords["z_nodes_gene"][i] for i in indices]
+        
+        # Get opacity for this bucket
+        opacity = get_bucket_opacity(bucket_idx, buckets)
+        
+        # Create trace for this bucket of gene nodes
+        trace = go.Scatter3d(
+            x=x_vals,
+            y=y_vals,
+            z=z_vals,
+            mode='markers',
+            marker=dict(
+                symbol='circle',
+                size=default_sizes["gene"],
+                color="blue",
+                line=dict(width=0)  # No border line
+            ),
+            hoverinfo='text',
+            hovertext=node_ids,
+            opacity=opacity,
+            name=f'Genes (opacity {opacity:.2f})',
+            showlegend=False  # Hide from legend to avoid clutter
+        )
+        
+        all_traces.append(trace)
+    
+    # Create multiple traces for phenotype nodes based on opacity buckets
+    phenotype_nodes_by_bucket = group_nodes_by_opacity(communities["phenotypes"], "phenotype", num_buckets)
+    
+    for bucket_idx, node_ids in phenotype_nodes_by_bucket.items():
+        # Get indices of these nodes in the coordinate arrays
+        indices = [communities["phenotypes"].index(node_id) for node_id in node_ids]
+        
+        # Extract coordinates for these nodes
+        x_vals = [node_coords["x_nodes_phenotype"][i] for i in indices]
+        y_vals = [node_coords["y_nodes_phenotype"][i] for i in indices]
+        z_vals = [node_coords["z_nodes_phenotype"][i] for i in indices]
+        
+        # Get opacity for this bucket
+        opacity = get_bucket_opacity(bucket_idx, buckets)
+        
+        # Create trace for this bucket of phenotype nodes
+        trace = go.Scatter3d(
+            x=x_vals,
+            y=y_vals,
+            z=z_vals,
+            mode='markers',
+            marker=dict(
+                symbol='circle',
+                size=default_sizes["phenotype"],
+                color="orange",
+                line=dict(width=0)  # No border line
+            ),
+            hoverinfo='text',
+            hovertext=node_ids,
+            opacity=opacity,
+            name=f'Phenotypes (opacity {opacity:.2f})',
+            showlegend=False  # Hide from legend to avoid clutter
+        )
+        
+        all_traces.append(trace)
+    
+    # Create multiple traces for diagnostic nodes based on opacity buckets
+    diagnostic_nodes_by_bucket = group_nodes_by_opacity(communities["diagnostics"], "diagnostic", num_buckets)
+    
+    for bucket_idx, node_ids in diagnostic_nodes_by_bucket.items():
+        # Get indices of these nodes in the coordinate arrays
+        indices = [communities["diagnostics"].index(node_id) for node_id in node_ids]
+        
+        # Extract coordinates for these nodes
+        x_vals = [node_coords["x_nodes_diagnostic"][i] for i in indices]
+        y_vals = [node_coords["y_nodes_diagnostic"][i] for i in indices]
+        z_vals = [node_coords["z_nodes_diagnostic"][i] for i in indices]
+        
+        # Get opacity for this bucket
+        opacity = get_bucket_opacity(bucket_idx, buckets)
+        
+        # Create trace for this bucket of diagnostic nodes
+        trace = go.Scatter3d(
+            x=x_vals,
+            y=y_vals,
+            z=z_vals,
+            mode='markers',
+            marker=dict(
+                symbol='circle',
+                size=default_sizes["diagnostic"],
+                color="magenta",
+                line=dict(width=0)  # No border line
+            ),
+            hoverinfo='text',
+            hovertext=node_ids,
+            opacity=opacity,
+            name=f'Diagnostics (opacity {opacity:.2f})',
+            showlegend=False  # Hide from legend to avoid clutter
+        )
+        
+        all_traces.append(trace)
+    
+    # Add three main legend traces with opacity=0 (invisible but show in legend)
+    # These are just for the legend - not for actual visualization
+    
+    # Gene legend trace
+    legend_gene = go.Scatter3d(
+        x=[0], y=[0], z=[0],
         mode='markers',
         marker=dict(
             symbol='circle',
             size=default_sizes["gene"],
             color="blue",
-            line=dict(width=0)  # No border line
+            line=dict(width=0)
         ),
-        hoverinfo='text', 
-        hovertext=communities["genes"], 
-        opacity=0.9,
-        name='Genes'
+        opacity=0,  # Invisible
+        name='Genes',
+        showlegend=True
     )
-
-    # Create phenotype nodes trace (orange color)
-    trace_nodes_phenotype = go.Scatter3d(
-        x=node_coords["x_nodes_phenotype"],
-        y=node_coords["y_nodes_phenotype"],
-        z=node_coords["z_nodes_phenotype"],
+    
+    # Phenotype legend trace
+    legend_phenotype = go.Scatter3d(
+        x=[0], y=[0], z=[0],
         mode='markers',
         marker=dict(
             symbol='circle',
             size=default_sizes["phenotype"],
             color="orange",
-            line=dict(width=0)  # No border line
+            line=dict(width=0)
         ),
-        hoverinfo='text', 
-        hovertext=communities["phenotypes"],
-        opacity=0.2,  # Lower opacity for phenotypes
-        name='Phenotypes'
+        opacity=0,  # Invisible
+        name='Phenotypes',
+        showlegend=True
     )
-
-    # Create diagnostic nodes trace (magenta color)
-    trace_nodes_diagnostic = go.Scatter3d(
-        x=node_coords["x_nodes_diagnostic"],
-        y=node_coords["y_nodes_diagnostic"],
-        z=node_coords["z_nodes_diagnostic"],
+    
+    # Diagnostic legend trace
+    legend_diagnostic = go.Scatter3d(
+        x=[0], y=[0], z=[0],
         mode='markers',
         marker=dict(
             symbol='circle',
             size=default_sizes["diagnostic"],
             color="magenta",
-            line=dict(width=0)  # No border line
+            line=dict(width=0)
         ),
-        hoverinfo='text', 
-        hovertext=communities["diagnostics"],
-        opacity=0.7,
-        name='Diagnostic Measures'
+        opacity=0,  # Invisible
+        name='Diagnostic Measures',
+        showlegend=True
     )
     
-    return [trace_nodes_gene, trace_nodes_phenotype, trace_nodes_diagnostic]
+    # Add the legend traces to the beginning so they appear at the top of the legend
+    all_traces = [legend_gene, legend_phenotype, legend_diagnostic] + all_traces
+    
+    return all_traces
 
-def create_edge_traces(edge_coords: Dict[str, List[float]]) -> List[go.Scatter3d]:
+def create_edge_traces(
+    edge_coords: Dict[str, List[float]], 
+    edge_types: Dict[str, List[Tuple[str, str]]],
+    communities: Dict[str, List[str]]
+) -> Tuple[List[go.Scatter3d], Dict[str, Any]]:
     """
-    Create Plotly traces for edges by type.
+    Create Plotly traces for edges by type, with opacity based on node values.
     
     Args:
         edge_coords: Dictionary with edge coordinates
+        edge_types: Dictionary with edge lists by type
+        communities: Dictionary with node communities (genes, phenotypes, diagnostics)
         
     Returns:
-        List of Plotly Scatter3d traces for edges
+        Tuple containing:
+        - List of Plotly Scatter3d traces for edges
+        - Dictionary with edge statistics
         
     Used in:
     - backend.backB.visualization.plotter.create_visualization
     """
+    # Calculate opacities for gene-phenotype edges
+    gene_pheno_opacities = []
+    for source, target in edge_types["gene_to_pheno_edges"]:
+        source_type = get_node_type(source, communities)
+        target_type = get_node_type(target, communities)
+        opacity = get_edge_opacity(source, source_type, target, target_type)
+        gene_pheno_opacities.append(opacity)
+    
+    # Calculate opacities for phenotype-diagnostic edges
+    pheno_diag_opacities = []
+    for source, target in edge_types["pheno_to_diag_edges"]:
+        source_type = get_node_type(source, communities)
+        target_type = get_node_type(target, communities)
+        opacity = get_edge_opacity(source, source_type, target, target_type)
+        pheno_diag_opacities.append(opacity)
+    
     # Create gene-to-phenotype edges trace (blue lines)
     trace_edges_gene_pheno = go.Scatter3d(
         x=edge_coords["gene_pheno_x"],
         y=edge_coords["gene_pheno_y"],
         z=edge_coords["gene_pheno_z"],
         mode='lines',
-        line=dict(color='blue', width=0.26),  # 95% of 0.27
-        opacity=0.4,
+        line=dict(
+            color='blue', 
+            width=0.26,  # 95% of 0.27
+            # We can't set individual line opacities, so we use the trace opacity
+        ),
+        opacity=0.6,  # Base opacity which will be adjusted by UI controls
         hoverinfo='none',
         name='Gene-Phenotype Connections'
     )
@@ -128,13 +277,23 @@ def create_edge_traces(edge_coords: Dict[str, List[float]]) -> List[go.Scatter3d
         y=edge_coords["pheno_diag_y"],
         z=edge_coords["pheno_diag_z"],
         mode='lines',
-        line=dict(color='orange', width=0.19),  # 95% of 0.2
-        opacity=0.3,
+        line=dict(
+            color='orange', 
+            width=0.19,  # 95% of 0.2
+            # We can't set individual line opacities, so we use the trace opacity
+        ),
+        opacity=0.5,  # Base opacity which will be adjusted by UI controls
         hoverinfo='none',
         name='Phenotype-Diagnostic Connections'
     )
     
-    return [trace_edges_gene_pheno, trace_edges_pheno_diag]
+    # Store opacities in the graph statistics for potential future use
+    edge_stats = {
+        "gene_pheno_opacities": gene_pheno_opacities,
+        "pheno_diag_opacities": pheno_diag_opacities
+    }
+    
+    return [trace_edges_gene_pheno, trace_edges_pheno_diag], edge_stats
 
 def configure_layout(width: int = 637, height: int = 509) -> go.Layout:
     """
@@ -232,7 +391,7 @@ def create_visualization(
     node_traces = create_node_traces(node_coords, communities)
     
     # Create edge traces
-    edge_traces = create_edge_traces(edge_coords)
+    edge_traces, edge_opacity_stats = create_edge_traces(edge_coords, edge_types, communities)
     
     # Configure layout
     layout = configure_layout(width, height)
@@ -246,6 +405,9 @@ def create_visualization(
             "pheno_to_diag_edges": len(edge_types["pheno_to_diag_edges"])
         }
     )
+    
+    # Add edge opacity statistics
+    graph_stats.update(edge_opacity_stats)
     
     # Combine all traces (edges first, then nodes)
     # This order is important for proper rendering (edges behind nodes)

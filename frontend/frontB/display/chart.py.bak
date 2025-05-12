@@ -78,106 +78,69 @@ def update_figure_data(
     Used in:
     - frontend.frontB.display.chart.update_visualization
     """
-    # With the opacity bucket approach, the figure structure is different:
-    # - First 3 traces are legend-only traces for the main categories
-    # - Edge traces (gene-phenotype, phenotype-diagnostic)
-    # - Multiple traces per node type, grouped by opacity bucket
-
-    # Safety check for enough traces
-    if len(fig_data) < 5:
-        # Return unchanged if we don't have enough traces
-        return fig_data
-
-    # Identify trace types
-    legend_traces = fig_data[:3]  # First 3 traces are legend-only
-    edge_traces = fig_data[3:5]   # Next 2 traces are edges
-    node_traces = fig_data[5:]    # Remaining traces are node buckets
-
-    # Find node traces by their names
-    gene_traces = [t for t in node_traces if hasattr(t, 'name') and t.name and 'Genes' in t.name]
-    phenotype_traces = [t for t in node_traces if hasattr(t, 'name') and t.name and 'Phenotypes' in t.name]
-    diagnostic_traces = [t for t in node_traces if hasattr(t, 'name') and t.name and 'Diagnostics' in t.name]
-
-    # Find edge traces by looking at all traces
-    # A more robust approach than assuming fixed positions
-    gene_pheno_edge_trace = None
-    pheno_diag_edge_trace = None
-
-    # Look for edge traces in all data
-    for trace in fig_data:
-        if hasattr(trace, 'name') and trace.name:
-            if 'Gene-Phenotype' in trace.name:
-                gene_pheno_edge_trace = trace
-            elif 'Phenotype-Diagnostic' in trace.name:
-                pheno_diag_edge_trace = trace
-
-    # Update gene-phenotype edge visibility if found
-    if gene_pheno_edge_trace is not None:
-        if "show_gene_pheno_edges" in controls and not controls["show_gene_pheno_edges"]:
-            gene_pheno_edge_trace.opacity = 0
-            gene_pheno_edge_trace.visible = False
-        else:
-            gene_pheno_edge_trace.opacity = 0.6  # Default opacity
-            gene_pheno_edge_trace.visible = True
-
-    # Update phenotype-diagnostic edge visibility if found
-    if pheno_diag_edge_trace is not None:
-        if "show_pheno_diag_edges" in controls and not controls["show_pheno_diag_edges"]:
-            pheno_diag_edge_trace.opacity = 0
-            pheno_diag_edge_trace.visible = False
-        else:
-            pheno_diag_edge_trace.opacity = 0.5  # Default opacity
-            pheno_diag_edge_trace.visible = True
+    # Trace order:
+    # 0: Gene-phenotype edges (trace_edges_gene_pheno)
+    # 1: Phenotype-diagnostic edges (trace_edges_pheno_diag)
+    # 2: Gene nodes (trace_nodes_gene)
+    # 3: Phenotype nodes (trace_nodes_phenotype)
+    # 4: Diagnostic nodes (trace_nodes_diagnostic)
     
-    # Update node trace visibilities by type
-    
-    # Update gene nodes
-    gene_legend_trace = legend_traces[0]
+    # Update gene-phenotype edge visibility (index 0)
+    if not controls["show_gene_pheno_edges"]:
+        # Hide edges completely - only depend on the specific edge control
+        fig_data[0].opacity = 0
+        fig_data[0].visible = "legendonly"
+    else:
+        # Keep original opacity (now controlled by database values)
+        fig_data[0].visible = True
+
+    # Update phenotype-diagnostic edge visibility (index 1)
+    if not controls["show_pheno_diag_edges"]:
+        # Hide edges completely - only depend on the specific edge control
+        fig_data[1].opacity = 0
+        fig_data[1].visible = "legendonly"
+    else:
+        # Keep original opacity (now controlled by database values)
+        fig_data[1].visible = True
+        
+    # Update gene nodes (index 2)
     if not controls["show_genes"]:
-        # Hide gene legend trace
-        gene_legend_trace.showlegend = False
-        # Hide all gene bucket traces
-        for trace in gene_traces:
-            trace.visible = "legendonly"
+        # Hide gene nodes completely including hover text
+        fig_data[2].opacity = 0
+        fig_data[2].hoverinfo = "skip"
+        fig_data[2].showlegend = False
+        fig_data[2].visible = "legendonly"
     else:
-        # Show gene legend trace
-        gene_legend_trace.showlegend = True
-        # Show all gene bucket traces and update size
-        for trace in gene_traces:
-            trace.visible = True
-            trace.marker.size = controls["gene_size"]
-    
-    # Update phenotype nodes
-    phenotype_legend_trace = legend_traces[1]
+        fig_data[2].marker.size = controls["gene_size"]
+        # Keep original opacity (now controlled by database values)
+        fig_data[2].hoverinfo = "text"
+        fig_data[2].visible = True
+
+    # Update phenotype nodes (index 3)
     if not controls["show_phenotypes"]:
-        # Hide phenotype legend trace
-        phenotype_legend_trace.showlegend = False
-        # Hide all phenotype bucket traces
-        for trace in phenotype_traces:
-            trace.visible = "legendonly"
+        # Hide phenotype nodes completely including hover text
+        fig_data[3].opacity = 0
+        fig_data[3].hoverinfo = "skip"
+        fig_data[3].showlegend = False
+        fig_data[3].visible = "legendonly"
     else:
-        # Show phenotype legend trace
-        phenotype_legend_trace.showlegend = True
-        # Show all phenotype bucket traces and update size
-        for trace in phenotype_traces:
-            trace.visible = True
-            trace.marker.size = controls["phenotype_size"]
-    
-    # Update diagnostic nodes
-    diagnostic_legend_trace = legend_traces[2]
+        fig_data[3].marker.size = controls["phenotype_size"]
+        # Keep original opacity (now controlled by database values)
+        fig_data[3].hoverinfo = "text"
+        fig_data[3].visible = True
+
+    # Update diagnostic nodes (index 4)
     if not controls["show_diagnostics"]:
-        # Hide diagnostic legend trace
-        diagnostic_legend_trace.showlegend = False
-        # Hide all diagnostic bucket traces
-        for trace in diagnostic_traces:
-            trace.visible = "legendonly"
+        # Hide diagnostic nodes completely including hover text
+        fig_data[4].opacity = 0
+        fig_data[4].hoverinfo = "skip"
+        fig_data[4].showlegend = False
+        fig_data[4].visible = "legendonly"
     else:
-        # Show diagnostic legend trace
-        diagnostic_legend_trace.showlegend = True
-        # Show all diagnostic bucket traces and update size
-        for trace in diagnostic_traces:
-            trace.visible = True
-            trace.marker.size = controls["diagnostic_size"]
+        fig_data[4].marker.size = controls["diagnostic_size"]
+        # Keep original opacity (now controlled by database values)
+        fig_data[4].hoverinfo = "text"
+        fig_data[4].visible = True
     
     return fig_data
 
@@ -545,33 +508,24 @@ def update_visualization(
         
         # 1. Visualization in the first slot
         with col1:
-            # For the bucketed approach, we need to update hover for all phenotype traces
-            if len(phenotype_names) > 0:
-                # For each phenotype trace in the buckets
-                for trace in updated_fig.data:
-                    # Safe check for trace name and visibility
-                    if (hasattr(trace, 'name') and
-                        hasattr(trace, 'visible') and
-                        trace.name and
-                        'Phenotypes' in trace.name and
-                        trace.visible != "legendonly"):
-
-                        # Safe check for hovertext attribute
-                        if (hasattr(trace, 'hovertext') and
-                            trace.hovertext is not None and
-                            len(trace.hovertext) > 0):
-
-                            # Update hover text with HPO names
-                            new_hover_texts = []
-                            for hpo_id in trace.hovertext:
-                                if hpo_id in phenotype_names:
-                                    hpo_name = phenotype_names[hpo_id]
-                                    new_hover_texts.append(f"{hpo_id}<br>{hpo_name}")
-                                else:
-                                    new_hover_texts.append(hpo_id)
-
-                            trace.hovertext = new_hover_texts
-                            trace.hoverinfo = "text"
+            # Modify hovertemplate for phenotype nodes to include HPO name
+            if len(phenotype_names) > 0 and len(updated_fig.data) >= 4:
+                # Index 3 is the phenotype nodes trace
+                phenotype_trace = updated_fig.data[3]
+                # Create new hover texts with HPO names included
+                new_hover_texts = []
+                
+                for hpo_id in phenotypes:
+                    if hpo_id in phenotype_names:
+                        hpo_name = phenotype_names[hpo_id]
+                        new_hover_texts.append(f"{hpo_id}<br>{hpo_name}")
+                    else:
+                        new_hover_texts.append(hpo_id)
+                
+                if len(new_hover_texts) == len(phenotype_trace.hovertext):
+                    phenotype_trace.hovertext = new_hover_texts
+                    # Update the hoverinfo mode
+                    phenotype_trace.hoverinfo = "text"
             
             # Add CSS to style the hover tooltips better
             st.markdown("""
@@ -646,7 +600,7 @@ def update_visualization(
             
             # Edge visibility controls in second column
             with visibility_col2:
-                st.markdown('<p style="margin: 0; padding: 0;"><b>Show Edges:</b></p>', unsafe_allow_html=True)
+                st.markdown('<p style="margin: 0; padding: 0;"><b>Show Connections:</b></p>', unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 create_checkbox("Gene-Phenotype", "show_gene_pheno_edges", col1)
                 create_checkbox("Phenotype-Diagnostic", "show_pheno_diag_edges", col2)

@@ -30,6 +30,7 @@ from backend.backA.knowledge_graph.edges import (
     create_gene_phenotype_relations,
     create_phenotype_diagnostic_relations
 )
+from backend.backA.data_storage.value_manager import initialize_node_values
 
 def build_knowledge_graph(selected_genes: Optional[List[str]] = None) -> Tuple[Any, Dict[str, list]]:
     """
@@ -123,5 +124,8 @@ def build_knowledge_graph(selected_genes: Optional[List[str]] = None) -> Tuple[A
     
     # Extract node communities
     communities = extract_node_communities(onto)
-    
+
+    # Initialize node values with default values based on node type
+    initialize_node_values(communities)
+
     return onto, communities
