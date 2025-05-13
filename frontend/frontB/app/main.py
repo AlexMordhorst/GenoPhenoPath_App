@@ -23,7 +23,7 @@ from frontend.frontB.display.chart import update_visualization
 from backend.backA.data_processing.loader import load_unique_genes
 from backend.backA.ontology.schema import clear_ontology
 
-def load_knowledge_graph(selected_genes=None):
+def load_knowledge_graph(selected_genes=None, force_refresh=False):
     """
     Load the knowledge graph from the backend controller.
     
@@ -32,6 +32,7 @@ def load_knowledge_graph(selected_genes=None):
     
     Args:
         selected_genes: Optional list of gene symbols to filter the graph
+        force_refresh: If True, forces a complete rebuild of the graph and visualization
     
     Returns:
         Tuple containing:
@@ -56,7 +57,11 @@ def load_knowledge_graph(selected_genes=None):
         
         # Call the function to get all necessary data, passing selected genes if provided
         print(f"DEBUG - Selected genes in load_knowledge_graph: {selected_genes if selected_genes else 'None'}")
-        fig, community_0, community_1, community_2, spring_3D, G, graph_stats = create_knowledge_graph(selected_genes)
+        print(f"DEBUG - Force refresh: {force_refresh}")
+        fig, community_0, community_1, community_2, spring_3D, G, graph_stats = create_knowledge_graph(
+            selected_genes, 
+            force_refresh=force_refresh
+        )
         
         # Log performance info
         elapsed_time = time.time() - start_time
@@ -65,13 +70,14 @@ def load_knowledge_graph(selected_genes=None):
     except Exception as e:
         raise e
 
-def load_data_with_animation(animation_placeholder: Any, selected_genes=None):
+def load_data_with_animation(animation_placeholder: Any, selected_genes=None, force_refresh=False):
     """
     Load the knowledge graph data (animation removed).
     
     Args:
         animation_placeholder: Streamlit container (kept for backward compatibility)
         selected_genes: Optional list of gene symbols to filter the graph
+        force_refresh: If True, forces a complete rebuild of the graph and visualization
         
     Returns:
         Tuple containing:
@@ -92,7 +98,8 @@ def load_data_with_animation(animation_placeholder: Any, selected_genes=None):
     with st.spinner("Generating knowledge graph..."):
         # Call the function directly without animation or threading
         print(f"DEBUG - Selected genes in load_data_with_animation: {selected_genes if selected_genes else 'None'}")
-        result = load_knowledge_graph(selected_genes)
+        print(f"DEBUG - Force refresh in load_data_with_animation: {force_refresh}")
+        result = load_knowledge_graph(selected_genes, force_refresh=force_refresh)
     
     # Get the result
     fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time = result
@@ -299,32 +306,147 @@ def create_landing_page():
 
 def create_phenotype_list_page(phenotypes):
     """
-    Create a page that displays a list of all phenotypes in the knowledge graph.
+    Create a page that displays a list of all phenotypes in the knowledge graph and
+    allows users to input clinical features observed in the patient.
     
     Args:
         phenotypes: List of phenotype IDs
     """
     
-    
     if not phenotypes or len(phenotypes) == 0:
         st.info("No phenotypes available. Please add genes in the Gene Selection tab first.")
         return
     
-    st.write(f"Total phenotypes: {len(phenotypes)}")
-    
-    # Load unique phenotypes with names
+    # Load unique phenotypes with names - we'll need this for both sections
     try:
         from backend.backA.data_processing.loader import load_unique_phenotypes
+        from backend.backA.data_storage.value_manager import set_node_value
         unique_phenotypes_df = load_unique_phenotypes()
+    except Exception as e:
+        st.error(f"Error loading phenotype data: {e}")
+        return
+    
+    # Initialize session state for clinical features if not present
+    if 'clinical_features' not in st.session_state:
+        st.session_state.clinical_features = []
+    
+    # Section 1: Clinical features observed in the patient
+    st.header("Clinical features observed in the patient")
+    
+    # Create a container for the search input and results
+    with st.container():
+        # Search input
+        phenotype_search = st.text_input(
+            "Search for clinical features (HPO terms)",
+            key="phenotype_search",
+            help="Enter a clinical feature to find matching HPO terms"
+        )
         
-        # Create a display DataFrame with both IDs and names
+        # Only perform search if there is input
+        if phenotype_search and len(phenotype_search) > 2:
+            # Simple fuzzy matching based on substring
+            # Convert search term and phenotype names to lowercase for case-insensitive matching
+            search_lower = phenotype_search.lower()
+            matches = unique_phenotypes_df[
+                unique_phenotypes_df['hpo_name'].str.lower().str.contains(search_lower, na=False)
+            ]
+            
+            # If matches found, show them in a container with buttons
+            if not matches.empty and len(matches) > 0:
+                st.write(f"Found {len(matches)} potential matches:")
+                
+                # Create a container to hold the matches with buttons
+                for idx, row in matches.head(5).iterrows():  # Limit to top 5 matches for simplicity
+                    col1, col2, col3, col4 = st.columns([6, 1, 1, 1])
+                    
+                    with col1:
+                        st.write(f"{row['hpo_id']}: {row['hpo_name']}")
+                    
+                    # Create buttons for classification
+                    with col2:
+                        if st.button(f"Present", key=f"present_{row['hpo_id']}"):
+                            add_clinical_feature(row['hpo_id'], row['hpo_name'], "Present", set_node_value)
+                            st.rerun()
+                    
+                    with col3:
+                        if st.button(f"Uncertain", key=f"uncertain_{row['hpo_id']}"):
+                            add_clinical_feature(row['hpo_id'], row['hpo_name'], "Uncertain", set_node_value)
+                            st.rerun()
+                    
+                    with col4:
+                        if st.button(f"Absent", key=f"absent_{row['hpo_id']}"):
+                            add_clinical_feature(row['hpo_id'], row['hpo_name'], "Absent", set_node_value)
+                            st.rerun()
+            else:
+                st.info(f"No matches found for '{phenotype_search}'")
+    
+    # Display selected clinical features
+    if st.session_state.clinical_features and len(st.session_state.clinical_features) > 0:
+        st.subheader("Selected clinical features")
+        
+        # Create a DataFrame to display
+        clinical_df = pd.DataFrame(st.session_state.clinical_features)
+        
+        # Add a "Remove" button column
+        clinical_df_with_index = clinical_df.reset_index()
+        
+        # Display the table
+        st.dataframe(
+            clinical_df[["HPO ID", "Phenotype Name", "Classification"]],
+            use_container_width=True
+        )
+        
+        # Add buttons for clearing features and updating visualization
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Clear all clinical features"):
+                st.session_state.clinical_features = []
+                st.rerun()
+                
+        with col2:
+            if st.button("Update graph visualization"):
+                # Set flag to refresh graph visualization
+                st.session_state.needs_visualization_update = True
+                st.success("Graph visualization will update when you switch to the Knowledge Graph tab.")
+                time.sleep(1)
+    
+    # Section 2: Theoretical phenotypic features from sequencing
+    st.header("Theoretical phenotypic features according to sequencing results")
+    st.write(f"Total phenotypes: {len(phenotypes)}")
+    
+    # Create a display DataFrame with IDs, names, and current values for theoretical features
+    try:
+        from backend.backA.data_storage.database import get_node_value
+        from backend.backA.data_storage.value_manager import set_node_value as db_set_node_value
+        
         display_data = []
         for phen_id in sorted(phenotypes):
             name = "Unknown"
             matches = unique_phenotypes_df[unique_phenotypes_df['hpo_id'] == phen_id]
             if not matches.empty:
                 name = matches.iloc[0]['hpo_name']
-            display_data.append({"HPO ID": phen_id, "Phenotype Name": name})
+            
+            # Get current value from database
+            try:
+                value = get_node_value(phen_id, 'phenotype')
+                # Convert value to a descriptive status
+                if value >= 0.8:
+                    status = "Present"
+                elif value <= 0.2:
+                    status = "Absent"
+                else:
+                    status = "Uncertain"
+            except Exception as val_error:
+                print(f"Error getting value for {phen_id}: {val_error}")
+                value = 0.5
+                status = "Unknown"
+                
+            display_data.append({
+                "HPO ID": phen_id, 
+                "Phenotype Name": name,
+                "Value": f"{value:.2f}",
+                "Status": status
+            })
         
         df = pd.DataFrame(display_data)
     except Exception as e:
@@ -333,6 +455,114 @@ def create_phenotype_list_page(phenotypes):
         df = pd.DataFrame({"HPO ID": sorted(phenotypes)})
     
     st.dataframe(df, use_container_width=True)
+    
+    # Add debugging controls to directly set values for troubleshooting
+    with st.expander("Advanced: Direct Value Control"):
+        st.warning("This is a debugging tool to directly set node values and test visualization updates.")
+        
+        # Input for phenotype ID
+        phen_id = st.text_input("Phenotype ID (e.g., HP:0000252)")
+        
+        # Value selection
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Set to Present (1.0)"):
+                if phen_id:
+                    db_set_node_value(phen_id, 'phenotype', 1.0)
+                    st.success(f"Set {phen_id} to Present (1.0)")
+                    st.session_state.needs_visualization_update = True
+        
+        with col2:
+            if st.button("Set to Uncertain (0.5)"):
+                if phen_id:
+                    db_set_node_value(phen_id, 'phenotype', 0.5)
+                    st.success(f"Set {phen_id} to Uncertain (0.5)")
+                    st.session_state.needs_visualization_update = True
+        
+        with col3:
+            if st.button("Set to Absent (0.0)"):
+                if phen_id:
+                    db_set_node_value(phen_id, 'phenotype', 0.0)
+                    st.success(f"Set {phen_id} to Absent (0.0)")
+                    st.session_state.needs_visualization_update = True
+        
+        if st.button("Force Graph Rebuild"):
+            st.session_state.needs_visualization_update = True
+            st.success("Graph will be rebuilt when you switch to the Knowledge Graph tab.")
+            st.info("After switching to the Knowledge Graph tab, wait for the graph to update, then refresh the page to see the changes.")
+            time.sleep(1)
+
+def add_clinical_feature(hpo_id, hpo_name, classification, set_node_value_func):
+    """
+    Add a clinical feature to the session state and update the node value in the database.
+    
+    Args:
+        hpo_id: The HPO ID of the feature
+        hpo_name: The name of the feature
+        classification: The classification (Present, Uncertain, Absent)
+        set_node_value_func: Function to set node value in the database
+    """
+    # Check if the feature already exists
+    for feature in st.session_state.clinical_features:
+        if feature["HPO ID"] == hpo_id:
+            # Update the existing feature
+            feature["Classification"] = classification
+            
+            # Update the node value
+            update_node_value(hpo_id, classification, set_node_value_func)
+            return
+    
+    # Add new feature
+    st.session_state.clinical_features.append({
+        "HPO ID": hpo_id,
+        "Phenotype Name": hpo_name,
+        "Classification": classification
+    })
+    
+    # Update the node value
+    update_node_value(hpo_id, classification, set_node_value_func)
+
+def update_node_value(hpo_id, classification, set_node_value_func):
+    """
+    Update the node value in the database based on the classification.
+    
+    Args:
+        hpo_id: The HPO ID of the feature
+        classification: The classification (Present, Uncertain, Absent)
+        set_node_value_func: Function to set node value in the database
+    """
+    # Set value based on classification
+    if classification == "Present":
+        value = 1.0
+    elif classification == "Uncertain":
+        value = 0.5
+    elif classification == "Absent":
+        value = 0.0
+    else:
+        value = 0.5  # Default
+    
+    # Update the node value in the database
+    set_node_value_func(hpo_id, 'phenotype', value)
+    
+    # Debug output to verify the value was set
+    from backend.backA.data_storage.database import get_node_value
+    from backend.backA.data_storage.value_manager import create_opacity_buckets, get_bucket_for_value
+    
+    actual_value = get_node_value(hpo_id, 'phenotype')
+    
+    # Test bucketing for this node
+    buckets = create_opacity_buckets(5)  # Same as in visualization
+    bucket_idx = get_bucket_for_value(actual_value, buckets)
+    
+    print(f"DEBUG - Updated node value for {hpo_id}: classification={classification}, value={value}, stored={actual_value}")
+    print(f"DEBUG - Node will appear in bucket {bucket_idx} with range {buckets[bucket_idx]}")
+    
+    # Set a flag to indicate that the graph needs to be updated
+    # This will trigger a refresh of the visualization when the user switches tabs
+    if 'needs_visualization_update' not in st.session_state:
+        st.session_state.needs_visualization_update = True
+    else:
+        st.session_state.needs_visualization_update = True
 
 def run_app():
     """
@@ -493,7 +723,7 @@ def run_app():
                         print("DEBUG - Ontology cleared and graph_data reset to None")
 
                 # Generate the graph with the current selection
-                graph_data = load_data_with_animation(animation_placeholder, selected_genes)
+                graph_data = load_data_with_animation(animation_placeholder, selected_genes, force_refresh=False)
                 st.session_state.graph_data = graph_data
                 st.session_state.has_generated_graph = True
                 # Reset the update flag
@@ -526,6 +756,22 @@ def run_app():
                     # Retrieve graph data from session state
                     (fig, genes, phenotypes, diagnostics, layout_3d, graph,
                      graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+
+                    # Check if we need to update the visualization due to node value changes
+                    if 'needs_visualization_update' in st.session_state and st.session_state.needs_visualization_update:
+                        # Reload the graph with existing gene selection
+                        st.session_state.needs_visualization_update = False
+                        print("DEBUG - Updating visualization due to node value changes")
+                        with st.spinner("Updating graph visualization..."):
+                            # Re-fetch data from nodes with updated values, forcing a complete refresh
+                            print("DEBUG - About to refresh graph with force_refresh=True")
+                            result = load_data_with_animation(animation_placeholder, st.session_state.selected_genes, force_refresh=True)
+                            st.session_state.graph_data = result
+
+                        # After updating graph data, get the new values
+                        (fig, genes, phenotypes, diagnostics, layout_3d, graph,
+                        graph_stats, elapsed_time, _) = st.session_state.graph_data
+                        st.success("Graph visualization updated with new clinical feature values.")
                 
                 # Initialize controls with default values
                 if 'controls' not in st.session_state:

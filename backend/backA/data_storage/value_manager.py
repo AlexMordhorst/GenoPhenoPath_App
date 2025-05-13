@@ -25,7 +25,7 @@ from backend.backA.data_storage.database import (
     clear_session_data
 )
 
-def initialize_node_values(communities: Dict[str, List[str]]) -> None:
+def initialize_node_values(communities: Dict[str, List[str]], preserve_custom_values: bool = False) -> None:
     """
     Initialize default values for all nodes in the communities.
     
@@ -36,18 +36,66 @@ def initialize_node_values(communities: Dict[str, List[str]]) -> None:
     
     Args:
         communities: Dictionary mapping community names to lists of node IDs
+        preserve_custom_values: If True, preserves any custom values that differ 
+                               from defaults. If False, resets all values to defaults.
     """
-    # Set default values for genes (1.0)
-    for gene_id in communities.get('genes', []):
-        set_node_value(gene_id, 'gene', 1.0)
+    from backend.backA.data_storage.database import get_node_value
     
-    # Set default values for phenotypes (0.5)
-    for phenotype_id in communities.get('phenotypes', []):
-        set_node_value(phenotype_id, 'phenotype', 0.5)
-    
-    # Set default values for diagnostics (0.0)
-    for diagnostic_id in communities.get('diagnostics', []):
-        set_node_value(diagnostic_id, 'diagnostic', 0.0)
+    if preserve_custom_values:
+        print(f"DEBUG - Preserving custom node values during graph update")
+        
+        # Set default values for genes (1.0) if they don't already exist
+        for gene_id in communities.get('genes', []):
+            try:
+                # Check if node already has a value
+                existing_value = get_node_value(gene_id, 'gene')
+                print(f"DEBUG - Gene {gene_id} already has value {existing_value}, preserving it")
+            except:
+                # Node doesn't exist, set default value
+                print(f"DEBUG - Setting default value for gene {gene_id}")
+                set_node_value(gene_id, 'gene', 1.0)
+        
+        # Set default values for phenotypes (0.5) if they don't already exist
+        for phenotype_id in communities.get('phenotypes', []):
+            try:
+                # Check if node already has a value in the database
+                current_value = get_node_value(phenotype_id, 'phenotype')
+                
+                # If current_value is not the default 0.5, preserve it
+                if abs(current_value - 0.5) > 0.01:  # Use small epsilon for float comparison
+                    print(f"DEBUG - Phenotype {phenotype_id} already has non-default value {current_value}, preserving it")
+                else:
+                    # Set to default value (this could be a new node or an existing one with default value)
+                    set_node_value(phenotype_id, 'phenotype', 0.5)
+            except:
+                # Node doesn't exist, set default value
+                set_node_value(phenotype_id, 'phenotype', 0.5)
+        
+        # Set default values for diagnostics (0.0) if they don't already exist
+        for diagnostic_id in communities.get('diagnostics', []):
+            try:
+                # Check if node already has a value
+                existing_value = get_node_value(diagnostic_id, 'diagnostic')
+                print(f"DEBUG - Diagnostic {diagnostic_id} already has value {existing_value}, preserving it")
+            except:
+                # Node doesn't exist, set default value
+                print(f"DEBUG - Setting default value for diagnostic {diagnostic_id}")
+                set_node_value(diagnostic_id, 'diagnostic', 0.0)
+    else:
+        # Always reset to defaults on new session/page reload
+        print(f"DEBUG - Resetting all node values to defaults")
+        
+        # Set default values for genes (1.0)
+        for gene_id in communities.get('genes', []):
+            set_node_value(gene_id, 'gene', 1.0)
+        
+        # Set default values for phenotypes (0.5)
+        for phenotype_id in communities.get('phenotypes', []):
+            set_node_value(phenotype_id, 'phenotype', 0.5)
+        
+        # Set default values for diagnostics (0.0)
+        for diagnostic_id in communities.get('diagnostics', []):
+            set_node_value(diagnostic_id, 'diagnostic', 0.0)
 
 def calculate_edge_values(G: nx.DiGraph, communities: Dict[str, List[str]]) -> None:
     """
@@ -201,6 +249,10 @@ def group_nodes_by_opacity(
 
     # Group nodes by bucket
     grouped_nodes = {i: [] for i in range(num_buckets)}
+    
+    # Debug output for phenotype nodes
+    if node_type == 'phenotype':
+        print(f"DEBUG - group_nodes_by_opacity - Grouping {len(node_ids)} phenotype nodes into {num_buckets} buckets")
 
     for node_id in node_ids:
         # Get the node value
@@ -208,9 +260,20 @@ def group_nodes_by_opacity(
 
         # Determine which bucket it belongs to
         bucket_index = get_bucket_for_value(value, buckets)
+        
+        # Debug output for phenotype nodes with non-default values
+        if node_type == 'phenotype' and (value <= 0.2 or value >= 0.8):
+            print(f"DEBUG - group_nodes_by_opacity - Phenotype {node_id}: value={value}, bucket={bucket_index}")
 
         # Add to the appropriate bucket
         grouped_nodes[bucket_index].append(node_id)
+
+    # Debug output for distribution of phenotype nodes
+    if node_type == 'phenotype':
+        for bucket_idx, nodes in grouped_nodes.items():
+            if nodes:  # Only print non-empty buckets
+                min_val, max_val = buckets[bucket_idx]
+                print(f"DEBUG - group_nodes_by_opacity - Bucket {bucket_idx} ({min_val:.2f}-{max_val:.2f}): {len(nodes)} phenotypes")
 
     # Remove empty buckets
     return {k: v for k, v in grouped_nodes.items() if v}

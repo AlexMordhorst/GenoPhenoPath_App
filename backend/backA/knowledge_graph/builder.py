@@ -126,6 +126,7 @@ def build_knowledge_graph(selected_genes: Optional[List[str]] = None) -> Tuple[A
     communities = extract_node_communities(onto)
 
     # Initialize node values with default values based on node type
-    initialize_node_values(communities)
+    # Note: We set preserve_custom_values=False by default to reset all values on a new session
+    initialize_node_values(communities, preserve_custom_values=False)
 
     return onto, communities
