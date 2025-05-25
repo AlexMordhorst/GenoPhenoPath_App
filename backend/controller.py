@@ -14,12 +14,150 @@ from typing import Tuple, Dict, Any, List, Optional
 
 import networkx as nx
 import plotly.graph_objects as go
+import numpy as np
+from scipy.optimize import minimize
 
 from backend.backA.knowledge_graph.builder import build_knowledge_graph
 from backend.backA.network.generator import create_networkx_graph
 from backend.backB.layout.positions import create_3d_layout, prepare_coordinates
 from backend.backB.layout.edges import identify_edge_types
 from backend.backB.visualization.plotter import create_visualization
+
+def project_point_to_plane(point: np.ndarray, plane_normal: np.ndarray, plane_point: np.ndarray) -> np.ndarray:
+    """
+    Project a 3D point onto a plane defined by a normal vector and a point on the plane.
+    
+    Args:
+        point: 3D point to project
+        plane_normal: Normal vector of the plane (should be normalized)
+        plane_point: A point on the plane (we'll use origin for simplicity)
+        
+    Returns:
+        Projected point on the plane
+    """
+    # For simplicity, we'll project onto planes through the origin
+    # Project point onto plane: projected = point - (point · normal) * normal
+    return point - np.dot(point, plane_normal) * plane_normal
+
+def calculate_projected_edge_lengths(positions: Dict[str, np.ndarray], edges: List[Tuple[str, str]], 
+                                   plane_normal: np.ndarray) -> float:
+    """
+    Calculate the total edge length when nodes are projected onto a given plane.
+    
+    Args:
+        positions: Dictionary of 3D positions for nodes
+        edges: List of edges (tuples of node names)
+        plane_normal: Normal vector of the projection plane
+        
+    Returns:
+        Total length of all edges when projected onto the plane
+    """
+    total_length = 0.0
+    plane_point = np.array([0, 0, 0])  # Project onto planes through origin
+    
+    for u, v in edges:
+        if u in positions and v in positions:
+            # Project both nodes onto the plane
+            proj_u = project_point_to_plane(positions[u], plane_normal, plane_point)
+            proj_v = project_point_to_plane(positions[v], plane_normal, plane_point)
+            
+            # Calculate distance between projected points
+            edge_length = np.linalg.norm(proj_v - proj_u)
+            total_length += edge_length
+    
+    return total_length
+
+def find_optimal_projection_plane(positions: Dict[str, np.ndarray], edges: List[Tuple[str, str]]) -> np.ndarray:
+    """
+    Find the plane that maximizes the total projected edge lengths for a subgraph.
+    
+    Args:
+        positions: Dictionary of 3D positions for subgraph nodes
+        edges: List of edges in the subgraph
+        
+    Returns:
+        Normal vector of the optimal projection plane
+    """
+    def objective(params):
+        # Convert spherical coordinates to normal vector
+        theta, phi = params
+        normal = np.array([
+            np.sin(theta) * np.cos(phi),
+            np.sin(theta) * np.sin(phi),
+            np.cos(theta)
+        ])
+        
+        # We want to maximize edge lengths, so minimize negative edge lengths
+        total_length = calculate_projected_edge_lengths(positions, edges, normal)
+        return -total_length  # Minimize negative (maximize positive)
+    
+    # Try multiple random starting points to avoid local minima
+    best_normal = None
+    best_score = float('inf')
+    
+    for _ in range(10):  # Try 10 different starting points
+        # Random initial angles
+        initial_theta = np.random.uniform(0, np.pi)
+        initial_phi = np.random.uniform(0, 2 * np.pi)
+        
+        # Optimize
+        result = minimize(
+            objective,
+            [initial_theta, initial_phi],
+            method='L-BFGS-B',
+            bounds=[(0, np.pi), (0, 2 * np.pi)]
+        )
+        
+        if result.success and result.fun < best_score:
+            best_score = result.fun
+            theta, phi = result.x
+            best_normal = np.array([
+                np.sin(theta) * np.cos(phi),
+                np.sin(theta) * np.sin(phi),
+                np.cos(theta)
+            ])
+    
+    # Fallback to XY plane if optimization fails
+    if best_normal is None:
+        best_normal = np.array([0, 0, 1])  # XY plane
+    
+    return best_normal
+
+def project_subgraph_to_optimal_plane(subgraph: nx.DiGraph, positions: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    """
+    Project all nodes in a subgraph onto the plane that maximizes edge lengths.
+    
+    Args:
+        subgraph: NetworkX subgraph
+        positions: Original 3D positions of nodes in the subgraph
+        
+    Returns:
+        Dictionary of projected positions for all nodes in the subgraph
+    """
+    # Get list of edges in the subgraph
+    edges = list(subgraph.edges())
+    
+    if len(edges) == 0:
+        # No edges, return original positions
+        return positions
+    
+    # Find optimal projection plane
+    optimal_normal = find_optimal_projection_plane(positions, edges)
+    
+    # Project all nodes onto the optimal plane
+    projected_positions = {}
+    plane_point = np.array([0, 0, 0])  # Project onto planes through origin
+    
+    for node in subgraph.nodes():
+        if node in positions:
+            projected_positions[node] = project_point_to_plane(
+                positions[node], optimal_normal, plane_point
+            )
+        else:
+            # Fallback: keep original position if not found
+            projected_positions[node] = positions.get(node, np.array([0, 0, 0]))
+    
+    return projected_positions
 
 def create_subgraph_visualization(subgraph: nx.DiGraph, positions: Dict[str, Any], 
                             communities: Dict[str, list]) -> go.Figure:
@@ -123,7 +261,7 @@ def create_subgraph_visualization(subgraph: nx.DiGraph, positions: Dict[str, Any
     
     return fig
 
-def generate_diagnostic_subgraphs(G: nx.DiGraph, communities: Dict[str, list], positions_3d: Dict[str, Any]) -> List[Tuple[nx.DiGraph, Dict[str, Any], str]]:
+def generate_diagnostic_subgraphs(G: nx.DiGraph, communities: Dict[str, list], positions_3d: Dict[str, Any]) -> List[Tuple[nx.DiGraph, Dict[str, Any], Dict[str, Any], str]]:
     """
     Generate a subgraph for each diagnostic node in the knowledge graph.
     
@@ -141,7 +279,8 @@ def generate_diagnostic_subgraphs(G: nx.DiGraph, communities: Dict[str, list], p
     Returns:
         List of tuples, each containing:
         - A NetworkX subgraph
-        - Dictionary of 3D positions for nodes in the subgraph
+        - Dictionary of original 3D positions for nodes in the subgraph
+        - Dictionary of projected 2D positions for optimal visualization
         - The diagnostic node name (for labeling)
         
     Used in:
@@ -179,16 +318,19 @@ def generate_diagnostic_subgraphs(G: nx.DiGraph, communities: Dict[str, list], p
                     # Add the edge connecting gene to phenotype
                     subgraph.add_edge(gene_node, phen_node, **G.edges[(gene_node, phen_node)])
         
-        # Create a dictionary of positions for this subgraph
+        # Create a dictionary of original positions for this subgraph
         subgraph_positions = {node: positions_3d[node] for node in subgraph.nodes()}
         
         # Only add subgraphs that have at least one phenotype and one gene node
         if len(phenotype_nodes) > 0 and len(gene_nodes) > 0:
-            subgraphs.append((subgraph, subgraph_positions, diag_node))
+            # Calculate projected positions for optimal visualization
+            projected_positions = project_subgraph_to_optimal_plane(subgraph, subgraph_positions)
+            
+            subgraphs.append((subgraph, subgraph_positions, projected_positions, diag_node))
     
     return subgraphs
 
-def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges: int = 1000, force_refresh: bool = False) -> Tuple[go.Figure, Dict[str, list], Dict[str, list], Dict[str, list], Dict[str, Any], nx.DiGraph, Dict[str, Any], List[Tuple[nx.DiGraph, Dict[str, Any], str]]]:
+def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges: int = 1000, force_refresh: bool = False) -> Tuple[go.Figure, Dict[str, list], Dict[str, list], Dict[str, list], Dict[str, Any], nx.DiGraph, Dict[str, Any]]:
     """
     Create the complete knowledge graph and visualization.
 
@@ -212,7 +354,6 @@ def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges
         - Dictionary of 3D positions
         - NetworkX graph
         - Dictionary of graph statistics
-        - List of diagnostic subgraphs (each containing a NetworkX graph, positions, and diagnostic name)
 
     Used in:
     - frontend.frontB.app.main.load_knowledge_graph
@@ -295,11 +436,8 @@ def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges
 
     # Create visualization
     fig, graph_stats = create_visualization(G, communities, positions_3d, edge_types, node_coords)
-
-    # Generate diagnostic subgraphs
-    diagnostic_subgraphs = generate_diagnostic_subgraphs(G, communities, positions_3d)
     
-    # Return all necessary objects for the frontend
+    # Return all necessary objects for the frontend (subgraphs will be generated on-demand)
     return (
         fig,
         communities["genes"],
@@ -307,6 +445,5 @@ def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges
         communities["diagnostics"],
         positions_3d,
         G,
-        graph_stats,
-        diagnostic_subgraphs
+        graph_stats
     )

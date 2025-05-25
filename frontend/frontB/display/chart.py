@@ -373,7 +373,7 @@ def update_visualization(
                 if 0 <= current_index < len(subgraphs):
                     # Extract the subgraph and its positions
                     from backend.controller import create_subgraph_visualization
-                    subgraph, positions, diag_name = subgraphs[current_index]
+                    subgraph, original_positions, projected_positions, diag_name = subgraphs[current_index]
                     
                     # Create communities dictionary for the subgraph
                     subgraph_communities = {
@@ -391,9 +391,9 @@ def update_visualization(
                         elif node in diagnostics:
                             subgraph_communities["diagnostics"].append(node)
                     
-                    # Create a visualization for the subgraph
-                    # Create the subgraph visualization directly
-                    current_fig = create_subgraph_visualization(subgraph, positions, subgraph_communities)
+                    # Create a visualization for the subgraph using projected positions
+                    # Use projected positions for better visualization of subgraph structure
+                    current_fig = create_subgraph_visualization(subgraph, projected_positions, subgraph_communities)
                     
                     # Copy the camera settings from the original figure to maintain the same view
                     if hasattr(fig, 'layout') and hasattr(fig.layout, 'scene') and hasattr(fig.layout.scene, 'camera'):
@@ -496,7 +496,7 @@ def update_visualization(
                 
                 if 0 <= current_index < len(subgraphs):
                     # Get edge counts from the subgraph
-                    subgraph, _, _ = subgraphs[current_index]
+                    subgraph, _, _, _ = subgraphs[current_index]
                     gene_to_pheno_count = 0
                     pheno_to_diag_count = 0
                     
@@ -738,13 +738,35 @@ def update_visualization(
             
             # Add "Induce Subgraphs" button
             if st.button("Induce Subgraphs", key="induce_subgraphs"):
-                # Enable subgraph view
-                st.session_state.controls["show_subgraphs"] = True
-                # Start with the first subgraph
+                # Generate subgraphs on-demand
                 if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
-                    subgraphs = st.session_state.graph_data[7]  # Index 7 contains subgraphs
-                    if len(subgraphs) > 0:
+                    # Get graph data (subgraphs list should be empty at index 7)
+                    graph_data = list(st.session_state.graph_data)
+                    
+                    # Extract necessary data for subgraph generation
+                    G = graph_data[5]  # NetworkX graph
+                    positions_3d = graph_data[4]  # 3D positions
+                    communities = {
+                        "genes": graph_data[1],
+                        "phenotypes": graph_data[2], 
+                        "diagnostics": graph_data[3]
+                    }
+                    
+                    # Generate subgraphs with projected positions
+                    with st.spinner("Generating diagnostic subgraphs..."):
+                        from backend.controller import generate_diagnostic_subgraphs
+                        diagnostic_subgraphs = generate_diagnostic_subgraphs(G, communities, positions_3d)
+                    
+                    # Update graph data with generated subgraphs
+                    graph_data[7] = diagnostic_subgraphs
+                    st.session_state.graph_data = tuple(graph_data)
+                    
+                    # Enable subgraph view and start with first subgraph
+                    st.session_state.controls["show_subgraphs"] = True
+                    if len(diagnostic_subgraphs) > 0:
                         st.session_state.current_subgraph_index = 0
+                    
+                    st.success(f"Generated {len(diagnostic_subgraphs)} diagnostic subgraphs!")
                 st.rerun()
         
         # Statistics are now displayed in their own tab
@@ -777,7 +799,7 @@ def update_visualization(
                     if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
                         subgraphs = st.session_state.graph_data[7]
                         if 0 <= current_index < len(subgraphs):
-                            diag_name = subgraphs[current_index][2]  # Index 2 contains diagnostic name
+                            diag_name = subgraphs[current_index][3]  # Index 3 contains diagnostic name
                             st.markdown(f"<div style='text-align: center'>Subgraph {current_index + 1}/{num_subgraphs}: {diag_name}</div>", unsafe_allow_html=True)
             
             with col3:

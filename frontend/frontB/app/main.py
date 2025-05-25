@@ -43,7 +43,7 @@ def load_knowledge_graph(selected_genes=None, force_refresh=False):
         - Dictionary of 3D positions
         - NetworkX graph
         - Dictionary of graph statistics
-        - List of diagnostic subgraphs
+        - Empty list (subgraphs generated on-demand)
         - Elapsed time (seconds)
         
     Used in:
@@ -59,7 +59,7 @@ def load_knowledge_graph(selected_genes=None, force_refresh=False):
         # Call the function to get all necessary data, passing selected genes if provided
         print(f"DEBUG - Selected genes in load_knowledge_graph: {selected_genes if selected_genes else 'None'}")
         print(f"DEBUG - Force refresh: {force_refresh}")
-        fig, community_0, community_1, community_2, spring_3D, G, graph_stats, diagnostic_subgraphs = create_knowledge_graph(
+        fig, community_0, community_1, community_2, spring_3D, G, graph_stats = create_knowledge_graph(
             selected_genes, 
             force_refresh=force_refresh
         )
@@ -67,7 +67,8 @@ def load_knowledge_graph(selected_genes=None, force_refresh=False):
         # Log performance info
         elapsed_time = time.time() - start_time
         
-        return fig, community_0, community_1, community_2, spring_3D, G, graph_stats, diagnostic_subgraphs, elapsed_time
+        # Return with empty subgraphs list (will be generated on-demand)
+        return fig, community_0, community_1, community_2, spring_3D, G, graph_stats, [], elapsed_time
     except Exception as e:
         raise e
 
@@ -89,7 +90,7 @@ def load_data_with_animation(animation_placeholder: Any, selected_genes=None, fo
         - Dictionary of 3D positions
         - NetworkX graph
         - Dictionary of graph statistics
-        - List of diagnostic subgraphs
+        - Empty list (subgraphs generated on-demand)
         - Loading time (seconds)
         - Empty list (kept for backward compatibility)
         
