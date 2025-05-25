@@ -119,8 +119,20 @@ def clustered_shell_layout_3d(G: nx.Graph, communities: Dict[str, List[str]]) ->
         
         temp_pos[diagnostic] = np.array([x, y, z])
     
-    # Step 2: Position phenotypes based on connected diagnostics (computation step)
-    for phenotype in phenotypes:
+    # Step 2: Position phenotypes using hybrid clustering + spherical distribution
+    alpha = 0.7  # Blending parameter: 0.7 = 70% clustering, 30% spherical distribution
+    
+    for i, phenotype in enumerate(phenotypes):
+        # Calculate spherical distribution position (Fibonacci sphere)
+        golden_ratio = (1 + 5**0.5) / 2
+        phi = np.arccos(1 - 2 * (i + 0.5) / len(phenotypes))
+        theta = 2 * np.pi * i / golden_ratio
+        
+        spherical_x = np.sin(phi) * np.cos(theta)
+        spherical_y = np.sin(phi) * np.sin(theta)
+        spherical_z = np.cos(phi)
+        spherical_direction = np.array([spherical_x, spherical_y, spherical_z])
+        
         # Find all diagnostics connected to this phenotype
         connected_diagnostics = []
         for diagnostic in diagnostics:
@@ -128,76 +140,128 @@ def clustered_shell_layout_3d(G: nx.Graph, communities: Dict[str, List[str]]) ->
                 connected_diagnostics.append(diagnostic)
         
         if connected_diagnostics:
-            # Calculate centroid of connected diagnostic positions
+            # Calculate clustering direction (centroid of connected diagnostics)
             centroid = np.mean([temp_pos[diag] for diag in connected_diagnostics], axis=0)
-            
-            # Normalize to project onto middle sphere
             centroid_norm = np.linalg.norm(centroid)
+            
             if centroid_norm > 0:
-                direction = centroid / centroid_norm
-                temp_pos[phenotype] = direction * shell_radii[1]  # Middle shell
+                clustering_direction = centroid / centroid_norm
+                
+                # Blend clustering and spherical directions
+                final_direction = alpha * clustering_direction + (1 - alpha) * spherical_direction
+                final_direction_norm = np.linalg.norm(final_direction)
+                
+                if final_direction_norm > 0:
+                    final_direction = final_direction / final_direction_norm
+                    temp_pos[phenotype] = final_direction * shell_radii[1]  # Middle shell
+                else:
+                    # Fallback to spherical if blend results in zero vector
+                    temp_pos[phenotype] = spherical_direction * shell_radii[1]
             else:
-                # Fallback: random position if centroid is at origin
-                phi = np.random.uniform(0, np.pi)
-                theta = np.random.uniform(0, 2 * np.pi)
-                radius = shell_radii[1]
-                x = radius * np.sin(phi) * np.cos(theta)
-                y = radius * np.sin(phi) * np.sin(theta)
-                z = radius * np.cos(phi)
-                temp_pos[phenotype] = np.array([x, y, z])
+                # Fallback to spherical if centroid is at origin
+                temp_pos[phenotype] = spherical_direction * shell_radii[1]
         else:
-            # No connected diagnostics - use even distribution
-            phen_index = phenotypes.index(phenotype)
-            
-            golden_ratio = (1 + 5**0.5) / 2
-            phi = np.arccos(1 - 2 * (phen_index + 0.5) / len(phenotypes))
-            theta = 2 * np.pi * phen_index / golden_ratio
-            
-            radius = shell_radii[1]
-            x = radius * np.sin(phi) * np.cos(theta)
-            y = radius * np.sin(phi) * np.sin(theta)
-            z = radius * np.cos(phi)
-            temp_pos[phenotype] = np.array([x, y, z])
+            # No connected diagnostics - use pure spherical distribution
+            temp_pos[phenotype] = spherical_direction * shell_radii[1]
     
-    # Step 3: Position genes based on connected phenotypes (computation step)
-    for gene in genes:
+    # Step 3: Position genes using hybrid clustering + spherical distribution with repulsion
+    beta = 0.5  # Blending parameter: 0.5 = 50% clustering, 50% spherical distribution
+    repulsion_distance = 8.0  # Minimum distance between genes (in terms of node radii)
+    
+    for i, gene in enumerate(genes):
+        # Calculate spherical distribution position (Fibonacci sphere)
+        golden_ratio = (1 + 5**0.5) / 2
+        phi = np.arccos(1 - 2 * (i + 0.5) / len(genes))
+        theta = 2 * np.pi * i / golden_ratio
+        
+        spherical_x = np.sin(phi) * np.cos(theta)
+        spherical_y = np.sin(phi) * np.sin(theta)
+        spherical_z = np.cos(phi)
+        spherical_direction = np.array([spherical_x, spherical_y, spherical_z])
+        
         # Find all phenotypes connected to this gene
         connected_phenotypes = []
         for phenotype in phenotypes:
             if G.has_edge(gene, phenotype):
                 connected_phenotypes.append(phenotype)
         
+        # Calculate initial position (clustering + spherical blend)
         if connected_phenotypes:
-            # Calculate centroid of connected phenotype positions
+            # Calculate clustering direction (centroid of connected phenotypes)
             centroid = np.mean([temp_pos[phen] for phen in connected_phenotypes], axis=0)
-            
-            # Normalize to project onto inner sphere
             centroid_norm = np.linalg.norm(centroid)
+            
             if centroid_norm > 0:
-                direction = centroid / centroid_norm
-                temp_pos[gene] = direction * shell_radii[0]  # Inner shell
+                clustering_direction = centroid / centroid_norm
+                
+                # Blend clustering and spherical directions
+                initial_direction = beta * clustering_direction + (1 - beta) * spherical_direction
+                initial_direction_norm = np.linalg.norm(initial_direction)
+                
+                if initial_direction_norm > 0:
+                    initial_direction = initial_direction / initial_direction_norm
+                else:
+                    # Fallback to spherical if blend results in zero vector
+                    initial_direction = spherical_direction
             else:
-                # Fallback: random position if centroid is at origin
-                phi = np.random.uniform(0, np.pi)
-                theta = np.random.uniform(0, 2 * np.pi)
-                radius = shell_radii[0]
-                x = radius * np.sin(phi) * np.cos(theta)
-                y = radius * np.sin(phi) * np.sin(theta)
-                z = radius * np.cos(phi)
-                temp_pos[gene] = np.array([x, y, z])
+                # Fallback to spherical if centroid is at origin
+                initial_direction = spherical_direction
         else:
-            # No connected phenotypes - use even distribution
-            gene_index = genes.index(gene)
+            # No connected phenotypes - use pure spherical distribution
+            initial_direction = spherical_direction
+        
+        # Apply repulsion constraint
+        final_position = initial_direction * shell_radii[0]
+        
+        # Check for repulsion with already positioned genes
+        max_iterations = 50  # Prevent infinite loops
+        iteration = 0
+        
+        while iteration < max_iterations:
+            too_close = False
+            repulsion_force = np.array([0.0, 0.0, 0.0])
             
-            golden_ratio = (1 + 5**0.5) / 2
-            phi = np.arccos(1 - 2 * (gene_index + 0.5) / len(genes))
-            theta = 2 * np.pi * gene_index / golden_ratio
+            # Check distance to all previously positioned genes
+            for positioned_gene in genes[:i]:  # Only check genes positioned before this one
+                if positioned_gene in temp_pos:
+                    other_pos = temp_pos[positioned_gene]
+                    distance = np.linalg.norm(final_position - other_pos)
+                    
+                    # Convert repulsion distance to actual 3D distance
+                    # Assume node radius is roughly 0.02 units (adjust based on your visualization)
+                    node_radius = 0.02
+                    min_distance = repulsion_distance * node_radius
+                    
+                    if distance < min_distance and distance > 0:
+                        too_close = True
+                        # Calculate repulsion vector (away from the other gene)
+                        repulsion_vector = (final_position - other_pos) / distance
+                        # Scale repulsion force inversely with distance
+                        force_magnitude = (min_distance - distance) / min_distance
+                        repulsion_force += repulsion_vector * force_magnitude
             
-            radius = shell_radii[0]
-            x = radius * np.sin(phi) * np.cos(theta)
-            y = radius * np.sin(phi) * np.sin(theta)
-            z = radius * np.cos(phi)
-            temp_pos[gene] = np.array([x, y, z])
+            if not too_close:
+                break
+                
+            # Apply repulsion force and renormalize to sphere
+            adjusted_direction = final_position + repulsion_force * 0.1  # Scale factor for adjustment
+            adjusted_norm = np.linalg.norm(adjusted_direction)
+            
+            if adjusted_norm > 0:
+                final_position = (adjusted_direction / adjusted_norm) * shell_radii[0]
+            else:
+                # If repulsion pushes to origin, use a random position
+                random_phi = np.random.uniform(0, np.pi)
+                random_theta = np.random.uniform(0, 2 * np.pi)
+                final_position = np.array([
+                    shell_radii[0] * np.sin(random_phi) * np.cos(random_theta),
+                    shell_radii[0] * np.sin(random_phi) * np.sin(random_theta),
+                    shell_radii[0] * np.cos(random_phi)
+                ])
+            
+            iteration += 1
+        
+        temp_pos[gene] = final_position
     
     # Step 4: Create final position dictionary in the order expected by prepare_coordinates
     # Order must be: genes first, then phenotypes, then diagnostics
