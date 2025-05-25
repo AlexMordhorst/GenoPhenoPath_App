@@ -330,7 +330,7 @@ def generate_diagnostic_subgraphs(G: nx.DiGraph, communities: Dict[str, list], p
     
     return subgraphs
 
-def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges: int = 1000, force_refresh: bool = False) -> Tuple[go.Figure, Dict[str, list], Dict[str, list], Dict[str, list], Dict[str, Any], nx.DiGraph, Dict[str, Any]]:
+def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges: int = 1000, force_refresh: bool = False) -> Tuple[go.Figure, Dict[str, list], Dict[str, list], Dict[str, list], Dict[str, Any], nx.DiGraph, Dict[str, Any], List, float]:
     """
     Create the complete knowledge graph and visualization.
 
@@ -354,10 +354,15 @@ def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges
         - Dictionary of 3D positions
         - NetworkX graph
         - Dictionary of graph statistics
+        - List of subgraphs (empty initially for performance)
+        - Elapsed time for graph creation
 
     Used in:
     - frontend.frontB.app.main.load_knowledge_graph
     """
+    import time
+    start_time = time.time()
+    
     # If force_refresh is True, clear the ontology first to ensure everything is rebuilt
     if force_refresh:
         from backend.backA.ontology.schema import clear_ontology
@@ -437,7 +442,10 @@ def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges
     # Create visualization
     fig, graph_stats = create_visualization(G, communities, positions_3d, edge_types, node_coords)
     
-    # Return all necessary objects for the frontend (subgraphs will be generated on-demand)
+    # Calculate elapsed time
+    elapsed_time = time.time() - start_time
+    
+    # Return all necessary objects for the frontend (subgraphs empty for performance)
     return (
         fig,
         communities["genes"],
@@ -445,5 +453,7 @@ def create_knowledge_graph(selected_genes: Optional[List[str]] = None, max_edges
         communities["diagnostics"],
         positions_3d,
         G,
-        graph_stats
+        graph_stats,
+        [],  # Empty subgraphs list - will be generated on-demand
+        elapsed_time
     )

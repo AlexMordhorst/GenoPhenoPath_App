@@ -1,4 +1,4 @@
-#!/Users/alexandermordhorst/Documents/Python/GenoPhenoPath_App/venv/bin/python
+#!/Users/alexandermordhorst/Documents/Python/GenoPhenoPath_App/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
