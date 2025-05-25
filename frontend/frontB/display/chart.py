@@ -358,6 +358,53 @@ def update_visualization(
     if 'need_rerun' not in st.session_state:
         st.session_state.need_rerun = False
     try:
+        # Check if we need to show a subgraph instead of the full graph
+        current_fig = fig
+        if ('show_subgraphs' in controls and 
+            controls['show_subgraphs'] and 
+            'current_subgraph_index' in st.session_state and 
+            st.session_state.current_subgraph_index >= 0):
+            
+            # Get the selected subgraph from the session state
+            if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                subgraphs = st.session_state.graph_data[7]  # Index 7 contains subgraphs
+                current_index = st.session_state.current_subgraph_index
+                
+                if 0 <= current_index < len(subgraphs):
+                    # Extract the subgraph and its positions
+                    from backend.controller import create_subgraph_visualization
+                    subgraph, positions, diag_name = subgraphs[current_index]
+                    
+                    # Create communities dictionary for the subgraph
+                    subgraph_communities = {
+                        "genes": [],
+                        "phenotypes": [],
+                        "diagnostics": []
+                    }
+                    
+                    # Categorize nodes in the subgraph
+                    for node in subgraph.nodes():
+                        if node in genes:
+                            subgraph_communities["genes"].append(node)
+                        elif node in phenotypes:
+                            subgraph_communities["phenotypes"].append(node)
+                        elif node in diagnostics:
+                            subgraph_communities["diagnostics"].append(node)
+                    
+                    # Create a visualization for the subgraph
+                    # Create the subgraph visualization directly
+                    current_fig = create_subgraph_visualization(subgraph, positions, subgraph_communities)
+                    
+                    # Copy the camera settings from the original figure to maintain the same view
+                    if hasattr(fig, 'layout') and hasattr(fig.layout, 'scene') and hasattr(fig.layout.scene, 'camera'):
+                        # Directly set camera parameters rather than using copy()
+                        if hasattr(fig.layout.scene.camera, 'eye'):
+                            current_fig.layout.scene.camera.eye = fig.layout.scene.camera.eye
+                        if hasattr(fig.layout.scene.camera, 'center'):
+                            current_fig.layout.scene.camera.center = fig.layout.scene.camera.center
+                        if hasattr(fig.layout.scene.camera, 'up'):
+                            current_fig.layout.scene.camera.up = fig.layout.scene.camera.up
+        
         # Handle search
         matching_nodes = handle_search(
             controls.get("search_term", ""),
@@ -367,11 +414,11 @@ def update_visualization(
         )
         
         # Update figure data based on controls
-        fig_data = list(fig.data)
+        fig_data = list(current_fig.data)
         updated_data = update_figure_data(fig_data, controls)
         
         # Create a new figure with the updated data
-        updated_fig = go.Figure(data=updated_data, layout=fig.layout)
+        updated_fig = go.Figure(data=updated_data, layout=current_fig.layout)
         
         # Set the figure size to be responsive and expand to full available space
         updated_fig.update_layout(
@@ -433,9 +480,44 @@ def update_visualization(
         )
         
         # Calculate visibility statistics
-        visibility_stats = calculate_visibility_stats(
-            controls, genes, phenotypes, diagnostics, graph_stats
-        )
+        # If we're showing a subgraph, we need to adjust the graph stats
+        if ('show_subgraphs' in controls and 
+            controls['show_subgraphs'] and 
+            'current_subgraph_index' in st.session_state and 
+            st.session_state.current_subgraph_index >= 0):
+            
+            # Create adjusted stats for the subgraph
+            subgraph_stats = dict(graph_stats)
+            
+            # Get the selected subgraph from the session state
+            if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                subgraphs = st.session_state.graph_data[7]  # Index 7 contains subgraphs
+                current_index = st.session_state.current_subgraph_index
+                
+                if 0 <= current_index < len(subgraphs):
+                    # Get edge counts from the subgraph
+                    subgraph, _, _ = subgraphs[current_index]
+                    gene_to_pheno_count = 0
+                    pheno_to_diag_count = 0
+                    
+                    for u, v in subgraph.edges():
+                        if u in genes and v in phenotypes:
+                            gene_to_pheno_count += 1
+                        elif u in phenotypes and v in diagnostics:
+                            pheno_to_diag_count += 1
+                    
+                    # Update the stats
+                    subgraph_stats["gene_to_pheno_edges"] = gene_to_pheno_count
+                    subgraph_stats["pheno_to_diag_edges"] = pheno_to_diag_count
+            
+            visibility_stats = calculate_visibility_stats(
+                controls, genes, phenotypes, diagnostics, subgraph_stats
+            )
+        else:
+            # Use the original graph stats
+            visibility_stats = calculate_visibility_stats(
+                controls, genes, phenotypes, diagnostics, graph_stats
+            )
         
         # Update session state with current statistics
         update_graph_statistics(
@@ -653,8 +735,84 @@ def update_visualization(
                 
             # Add a spacer
             st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+            
+            # Add "Induce Subgraphs" button
+            if st.button("Induce Subgraphs", key="induce_subgraphs"):
+                # Enable subgraph view
+                st.session_state.controls["show_subgraphs"] = True
+                # Start with the first subgraph
+                if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                    subgraphs = st.session_state.graph_data[7]  # Index 7 contains subgraphs
+                    if len(subgraphs) > 0:
+                        st.session_state.current_subgraph_index = 0
+                st.rerun()
         
         # Statistics are now displayed in their own tab
+        
+        # Add subgraph navigation controls if enabled
+        if 'show_subgraphs' in controls and controls['show_subgraphs']:
+            st.markdown("<hr style='margin: 5px 0; border-color: #333;'><h4 style='margin: 5px 0;'>Diagnostic Subgraphs</h4>", unsafe_allow_html=True)
+            
+            # Create a row for subgraph navigation
+            col1, col2, col3 = st.columns([1, 3, 1])
+            
+            with col1:
+                prev_button = st.button("◀ Previous", key="prev_subgraph")
+            
+            with col2:
+                # Get the current index and total subgraphs
+                current_index = st.session_state.get('current_subgraph_index', -1)
+                
+                # Find out how many subgraphs we have
+                num_subgraphs = 0
+                if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                    subgraphs = st.session_state.graph_data[7]  # Index 7 contains subgraphs
+                    num_subgraphs = len(subgraphs)
+                
+                # Display current subgraph info
+                if current_index == -1:
+                    st.markdown(f"<div style='text-align: center'>Showing full graph ({num_subgraphs} subgraphs available)</div>", unsafe_allow_html=True)
+                else:
+                    # Get the name of the current diagnostic
+                    if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                        subgraphs = st.session_state.graph_data[7]
+                        if 0 <= current_index < len(subgraphs):
+                            diag_name = subgraphs[current_index][2]  # Index 2 contains diagnostic name
+                            st.markdown(f"<div style='text-align: center'>Subgraph {current_index + 1}/{num_subgraphs}: {diag_name}</div>", unsafe_allow_html=True)
+            
+            with col3:
+                next_button = st.button("Next ▶", key="next_subgraph")
+            
+            # Handle button clicks
+            if prev_button:
+                # Get current and set the previous index
+                current_index = st.session_state.get('current_subgraph_index', -1)
+                if current_index > -1:
+                    st.session_state.current_subgraph_index = current_index - 1
+                else:
+                    # Wrap around to the last subgraph
+                    if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                        subgraphs = st.session_state.graph_data[7]
+                        st.session_state.current_subgraph_index = len(subgraphs) - 1
+                st.rerun()
+            
+            if next_button:
+                # Get current and set the next index
+                current_index = st.session_state.get('current_subgraph_index', -1)
+                if 'graph_data' in st.session_state and st.session_state.graph_data is not None:
+                    subgraphs = st.session_state.graph_data[7]
+                    if current_index < len(subgraphs) - 1:
+                        st.session_state.current_subgraph_index = current_index + 1
+                    else:
+                        # Wrap around to full graph
+                        st.session_state.current_subgraph_index = -1
+                st.rerun()
+            
+            # Add a "Back to Full Graph" button
+            if current_index != -1:
+                if st.button("Show Full Graph", key="full_graph"):
+                    st.session_state.current_subgraph_index = -1
+                    st.rerun()
         
         return updated_fig
         

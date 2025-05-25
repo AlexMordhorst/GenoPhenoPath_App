@@ -43,6 +43,7 @@ def load_knowledge_graph(selected_genes=None, force_refresh=False):
         - Dictionary of 3D positions
         - NetworkX graph
         - Dictionary of graph statistics
+        - List of diagnostic subgraphs
         - Elapsed time (seconds)
         
     Used in:
@@ -58,7 +59,7 @@ def load_knowledge_graph(selected_genes=None, force_refresh=False):
         # Call the function to get all necessary data, passing selected genes if provided
         print(f"DEBUG - Selected genes in load_knowledge_graph: {selected_genes if selected_genes else 'None'}")
         print(f"DEBUG - Force refresh: {force_refresh}")
-        fig, community_0, community_1, community_2, spring_3D, G, graph_stats = create_knowledge_graph(
+        fig, community_0, community_1, community_2, spring_3D, G, graph_stats, diagnostic_subgraphs = create_knowledge_graph(
             selected_genes, 
             force_refresh=force_refresh
         )
@@ -66,7 +67,7 @@ def load_knowledge_graph(selected_genes=None, force_refresh=False):
         # Log performance info
         elapsed_time = time.time() - start_time
         
-        return fig, community_0, community_1, community_2, spring_3D, G, graph_stats, elapsed_time
+        return fig, community_0, community_1, community_2, spring_3D, G, graph_stats, diagnostic_subgraphs, elapsed_time
     except Exception as e:
         raise e
 
@@ -88,6 +89,7 @@ def load_data_with_animation(animation_placeholder: Any, selected_genes=None, fo
         - Dictionary of 3D positions
         - NetworkX graph
         - Dictionary of graph statistics
+        - List of diagnostic subgraphs
         - Loading time (seconds)
         - Empty list (kept for backward compatibility)
         
@@ -102,7 +104,7 @@ def load_data_with_animation(animation_placeholder: Any, selected_genes=None, fo
         result = load_knowledge_graph(selected_genes, force_refresh=force_refresh)
     
     # Get the result
-    fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time = result
+    fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, subgraphs, elapsed_time = result
     
     # Show toast when loading completes
     st.toast(f"Graph loaded in {elapsed_time:.2f} seconds")
@@ -110,7 +112,7 @@ def load_data_with_animation(animation_placeholder: Any, selected_genes=None, fo
     # Return an empty list for frames to maintain backward compatibility
     frames = []
     
-    return fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, elapsed_time, frames
+    return fig, genes, phenotypes, diagnostics, layout_3d, graph, graph_stats, subgraphs, elapsed_time, frames
 
 def create_landing_page():
     """
@@ -728,6 +730,8 @@ def run_app():
                 st.session_state.has_generated_graph = True
                 # Reset the update flag
                 st.session_state.needs_graph_update = False
+                # Initialize subgraph index
+                st.session_state.current_subgraph_index = -1  # -1 means no subgraph (showing full graph)
 
                 st.success("Knowledge graph generated. You can now navigate to the Knowledge Graph and Phenotypes tabs.")
                 # This rerun is needed but only done once after graph generation
@@ -755,7 +759,7 @@ def run_app():
                 else:
                     # Retrieve graph data from session state
                     (fig, genes, phenotypes, diagnostics, layout_3d, graph,
-                     graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+                     graph_stats, subgraphs, elapsed_time, animation_frames) = st.session_state.graph_data
 
                     # Check if we need to update the visualization due to node value changes
                     if 'needs_visualization_update' in st.session_state and st.session_state.needs_visualization_update:
@@ -770,7 +774,7 @@ def run_app():
 
                         # After updating graph data, get the new values
                         (fig, genes, phenotypes, diagnostics, layout_3d, graph,
-                        graph_stats, elapsed_time, _) = st.session_state.graph_data
+                        graph_stats, subgraphs, elapsed_time, _) = st.session_state.graph_data
                         st.success("Graph visualization updated with new clinical feature values.")
                 
                 # Initialize controls with default values
@@ -845,7 +849,7 @@ def run_app():
                 else:
                     # Retrieve graph data from session state
                     (fig, genes, phenotypes, diagnostics, layout_3d, graph,
-                     graph_stats, elapsed_time, animation_frames) = st.session_state.graph_data
+                     graph_stats, subgraphs, elapsed_time, animation_frames) = st.session_state.graph_data
                 
                 
                 

@@ -72,9 +72,154 @@ def shell_layout_3d(G: nx.Graph, node_types: Dict[str, int]) -> Dict[str, np.nda
     
     return pos
 
+def clustered_shell_layout_3d(G: nx.Graph, communities: Dict[str, List[str]]) -> Dict[str, np.ndarray]:
+    """
+    Position nodes in concentric 3D shells with clustering based on connectivity.
+    
+    Optimization criteria:
+    1. Minimize edge length to diagnostic nodes (primary)
+    2. Minimize edge length to gene nodes (secondary)
+    
+    The algorithm positions nodes in computation order (diagnostics->phenotypes->genes)
+    but returns them in visualization order (genes->phenotypes->diagnostics).
+    
+    Args:
+        G: NetworkX graph
+        communities: Dictionary with node communities (genes, phenotypes, diagnostics)
+        
+    Returns:
+        Dictionary of positions keyed by node in the order expected by prepare_coordinates:
+        genes first, then phenotypes, then diagnostics
+        
+    Used in:
+    - backend.backB.layout.positions.create_3d_layout
+    """
+    # Define radii for each shell
+    shell_radii = {0: 0.5, 1: 1.0, 2: 1.5}  # genes, phenotypes, diagnostics
+    temp_pos = {}  # Temporary storage for computing positions
+    
+    # Get node lists
+    genes = communities["genes"]
+    phenotypes = communities["phenotypes"]
+    diagnostics = communities["diagnostics"]
+    
+    # Step 1: Position diagnostics evenly around outer sphere (computation step)
+    n_diagnostics = len(diagnostics)
+    
+    for i, diagnostic in enumerate(diagnostics):
+        # Use Fibonacci sphere for even distribution
+        golden_ratio = (1 + 5**0.5) / 2
+        phi = np.arccos(1 - 2 * (i + 0.5) / n_diagnostics)
+        theta = 2 * np.pi * i / golden_ratio
+        
+        radius = shell_radii[2]  # Outer shell
+        x = radius * np.sin(phi) * np.cos(theta)
+        y = radius * np.sin(phi) * np.sin(theta)
+        z = radius * np.cos(phi)
+        
+        temp_pos[diagnostic] = np.array([x, y, z])
+    
+    # Step 2: Position phenotypes based on connected diagnostics (computation step)
+    for phenotype in phenotypes:
+        # Find all diagnostics connected to this phenotype
+        connected_diagnostics = []
+        for diagnostic in diagnostics:
+            if G.has_edge(phenotype, diagnostic):
+                connected_diagnostics.append(diagnostic)
+        
+        if connected_diagnostics:
+            # Calculate centroid of connected diagnostic positions
+            centroid = np.mean([temp_pos[diag] for diag in connected_diagnostics], axis=0)
+            
+            # Normalize to project onto middle sphere
+            centroid_norm = np.linalg.norm(centroid)
+            if centroid_norm > 0:
+                direction = centroid / centroid_norm
+                temp_pos[phenotype] = direction * shell_radii[1]  # Middle shell
+            else:
+                # Fallback: random position if centroid is at origin
+                phi = np.random.uniform(0, np.pi)
+                theta = np.random.uniform(0, 2 * np.pi)
+                radius = shell_radii[1]
+                x = radius * np.sin(phi) * np.cos(theta)
+                y = radius * np.sin(phi) * np.sin(theta)
+                z = radius * np.cos(phi)
+                temp_pos[phenotype] = np.array([x, y, z])
+        else:
+            # No connected diagnostics - use even distribution
+            phen_index = phenotypes.index(phenotype)
+            
+            golden_ratio = (1 + 5**0.5) / 2
+            phi = np.arccos(1 - 2 * (phen_index + 0.5) / len(phenotypes))
+            theta = 2 * np.pi * phen_index / golden_ratio
+            
+            radius = shell_radii[1]
+            x = radius * np.sin(phi) * np.cos(theta)
+            y = radius * np.sin(phi) * np.sin(theta)
+            z = radius * np.cos(phi)
+            temp_pos[phenotype] = np.array([x, y, z])
+    
+    # Step 3: Position genes based on connected phenotypes (computation step)
+    for gene in genes:
+        # Find all phenotypes connected to this gene
+        connected_phenotypes = []
+        for phenotype in phenotypes:
+            if G.has_edge(gene, phenotype):
+                connected_phenotypes.append(phenotype)
+        
+        if connected_phenotypes:
+            # Calculate centroid of connected phenotype positions
+            centroid = np.mean([temp_pos[phen] for phen in connected_phenotypes], axis=0)
+            
+            # Normalize to project onto inner sphere
+            centroid_norm = np.linalg.norm(centroid)
+            if centroid_norm > 0:
+                direction = centroid / centroid_norm
+                temp_pos[gene] = direction * shell_radii[0]  # Inner shell
+            else:
+                # Fallback: random position if centroid is at origin
+                phi = np.random.uniform(0, np.pi)
+                theta = np.random.uniform(0, 2 * np.pi)
+                radius = shell_radii[0]
+                x = radius * np.sin(phi) * np.cos(theta)
+                y = radius * np.sin(phi) * np.sin(theta)
+                z = radius * np.cos(phi)
+                temp_pos[gene] = np.array([x, y, z])
+        else:
+            # No connected phenotypes - use even distribution
+            gene_index = genes.index(gene)
+            
+            golden_ratio = (1 + 5**0.5) / 2
+            phi = np.arccos(1 - 2 * (gene_index + 0.5) / len(genes))
+            theta = 2 * np.pi * gene_index / golden_ratio
+            
+            radius = shell_radii[0]
+            x = radius * np.sin(phi) * np.cos(theta)
+            y = radius * np.sin(phi) * np.sin(theta)
+            z = radius * np.cos(phi)
+            temp_pos[gene] = np.array([x, y, z])
+    
+    # Step 4: Create final position dictionary in the order expected by prepare_coordinates
+    # Order must be: genes first, then phenotypes, then diagnostics
+    pos = {}
+    
+    # Add genes first
+    for gene in genes:
+        pos[gene] = temp_pos[gene]
+    
+    # Add phenotypes second  
+    for phenotype in phenotypes:
+        pos[phenotype] = temp_pos[phenotype]
+    
+    # Add diagnostics last
+    for diagnostic in diagnostics:
+        pos[diagnostic] = temp_pos[diagnostic]
+    
+    return pos
+
 def create_3d_layout(G: nx.Graph, communities: Dict[str, List[str]]) -> Dict[str, np.ndarray]:
     """
-    Create a 3D layout for the knowledge graph nodes.
+    Create a 3D layout for the knowledge graph nodes using clustered positioning.
     
     Args:
         G: NetworkX graph
@@ -86,23 +231,8 @@ def create_3d_layout(G: nx.Graph, communities: Dict[str, List[str]]) -> Dict[str
     Used in:
     - backend.backB.visualization.plotter.create_visualization
     """
-    # Create a node type dictionary for the 3D shell layout
-    node_types = {}
-    
-    # Genes in the innermost shell (0)
-    for gene in communities["genes"]:
-        node_types[gene] = 0
-        
-    # Phenotypes in the middle shell (1)
-    for phenotype in communities["phenotypes"]:
-        node_types[phenotype] = 1
-        
-    # Diagnostics in the outermost shell (2)
-    for diagnostic in communities["diagnostics"]:
-        node_types[diagnostic] = 2
-    
-    # Use our custom shell layout
-    positions_3d = shell_layout_3d(G, node_types)
+    # Use the new clustered shell layout
+    positions_3d = clustered_shell_layout_3d(G, communities)
     
     return positions_3d
 

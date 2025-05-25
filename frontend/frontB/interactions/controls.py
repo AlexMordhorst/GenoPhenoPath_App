@@ -24,6 +24,7 @@ def create_sidebar_controls() -> Dict[str, Any]:
     - Performance settings
     - Search functionality
     - Graph regeneration
+    - Subgraph navigation
     
     Returns:
         Dictionary with control values:
@@ -42,6 +43,7 @@ def create_sidebar_controls() -> Dict[str, Any]:
         - gene_pheno_opacity: Float with gene-phenotype edge opacity
         - pheno_diag_opacity: Float with phenotype-diagnostic edge opacity
         - edge_limit: Int or string with edge limit setting
+        - show_subgraph: Boolean indicating whether to show a diagnostic subgraph
         
     Used in:
     - frontend.frontB.app.main.run_app
@@ -93,6 +95,10 @@ def create_sidebar_controls() -> Dict[str, Any]:
             value=1000,
             help="Limit edges to improve performance"
         )
+        
+        # Subgraph controls
+        st.subheader("Diagnostic Subgraphs")
+        controls["show_subgraphs"] = st.checkbox("Enable Subgraph View", value=False)
         
         # Action buttons
         st.subheader("Actions")
